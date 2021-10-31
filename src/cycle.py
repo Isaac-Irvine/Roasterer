@@ -1,11 +1,12 @@
 
 
 class Cycle:
-    def __init__(self, name, jobs_needed, people_available, jobs_assigned=dict()):
+    def __init__(self, name, jobs_needed=None, people_available=None, jobs_assigned=None):
         self._name = name
-        self._jobs = jobs_needed
-        self._people = people_available
-        self._assigned = jobs_assigned  # maps people to job
+        self._jobs = [] if jobs_needed is None else jobs_needed
+        self._people = [] if people_available is None else people_available
+        # maps people to job
+        self._assigned = {} if jobs_assigned is None else jobs_assigned
 
     def get_spare_people(self):
         return self._people

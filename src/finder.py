@@ -18,7 +18,7 @@ def _fill_cycle(cycle, last_cycle=None):
 
     for skip_hards in (True, False) if last_job_hard else (False, ):
         for job in cycle.get_spare_jobs():
-            if job not in person.get_jobs() or skip_hards and job.is_hard():
+            if job not in person.get_all_jobs() or skip_hards and job.is_hard():
                 continue
 
             new_cycle = cycle.copy()
