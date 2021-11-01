@@ -1,7 +1,12 @@
+class JobGroup:
+    def __init__(self, name):
+        self._name = name
+
+    def get_name(self):
+        return self._name
 
 
 class Job:
-
     def __init__(self, name, hard, supervisor=False):
         """
         :param name: name of the job. e.g. "cell 4"
@@ -9,6 +14,7 @@ class Job:
         """
         self._name = name
         self._hard = hard
+        #self._job_group = job_group
         if supervisor is False:
             self._supervisor_job = Job(self._name + ' supervisor', self._hard, supervisor=True)
         else:

@@ -14,7 +14,9 @@ Somewhat working but has bugs, not all features are implemented yet and next to 
 - add in wild cards
 - add available for training in Jobs and Cycles table
 - refactor data types. i.e use sets more
-- Should I be using BFS?
+- find a way to calculate weather its possible to have a valid roaster
+- Should I be using BFS? probably yeah
 
-##Todo today:
-- sort jobs better in finder algorithm
+#Known bugs
+- finder algorithm not guaranteed to find best solution
+- will search for longer than the lifetime of the universe if no solution is available

@@ -5,7 +5,8 @@ from roaster import Roaster
 
 
 # (mostly) randomised recursive depth first search for valid timetables
-# Will take a huge amount of time to go through all possibilities
+# Will take a huge amount of time to go through all possibilities!!!
+# There is ~100,0000 time more possible roasters than their are atoms in our galaxy
 def _fill_cycle(cycle, last_cycle=None):
     if len(cycle.get_spare_jobs()) == 0:
         yield cycle
@@ -46,7 +47,6 @@ def _fill_cycle(cycle, last_cycle=None):
     jobs = filter(lambda j: j in person.get_all_jobs(), cycle.get_spare_jobs())
     if last_cycle is not None and last_cycle.is_assigned(person) and last_cycle.get_persons_job(person).is_hard():
         jobs = filter(lambda j: not j.is_hard(), jobs)
-    jobs = list(jobs)
 #    jobs.sort(key=cmp_to_key(compare))
 
     for job in jobs:
@@ -69,4 +69,4 @@ def _find_roaster(cycles, filled_cycles):
 
 
 def find_roaster(roaster):
-    return Roaster(next(_find_roaster(roaster.get_cycles(), [])))
+    return Roaster(next(_find_roaster(roaster.get_cycles(), [])), roaster._job_order)
