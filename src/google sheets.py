@@ -2,7 +2,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from tabulate import tabulate
 
-from finder import find_roaster
+#from finder import find_roaster
+from finder2 import fill_roaster
 from time import time
 
 from table_parsing import parse_table
@@ -27,7 +28,7 @@ unfilled_roaster = parse_table(jobs_cycles, people_availability, people_jobs, ro
 
 print('starting finder')
 start_time = time()
-roaster = find_roaster(unfilled_roaster)
+roaster = fill_roaster(unfilled_roaster)
 print(f'time taken: {time() - start_time}s')
 roaster_as_table = roaster.to_table()
 

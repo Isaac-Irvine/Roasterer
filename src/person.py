@@ -1,3 +1,4 @@
+from job import Job
 
 
 class Person:
@@ -5,6 +6,9 @@ class Person:
         self._all_jobs = [] if all_jobs is None else all_jobs
         self._jobs_needing_supervision = [] if jobs_needing_supervision is None else jobs_needing_supervision
         self._name = name
+
+    def can_do_job(self, job: Job) -> bool:
+        return job in self._all_jobs
 
     def get_all_jobs(self):
         return self._all_jobs
