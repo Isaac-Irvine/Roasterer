@@ -34,9 +34,6 @@ class Cycle:
     def get_assigned(self):
         return self._assigned
 
-    def get_job_assignee(self, job):
-        pass  # TODO
-
     def get_persons_job(self, person):
         return self._assigned[person]
 
@@ -48,12 +45,3 @@ class Cycle:
 
     def __str__(self):
         return self._name
-
-    #def __repr__(self):  # temp
-    #    return f"{self._name}. \n" \
-    #           f"Assigned jobs: {self._assigned} \n" \
-    #           f"Spare jobs: {self._jobs} \n" \
-    #           f"Spare people: {self._people}"
-
-    # def is_filled(self):
-    #    return len(self._people) == 0 or len(self._jobs) == 0

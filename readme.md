@@ -12,6 +12,9 @@ Somewhat working but has bugs, not all features are implemented yet and next to 
 - if it can't make a complete timetable, make an incomplete one and/or report back why
 - make roaster look nicer. Maybe export data back to google sheets
 - add in wild cards
+- add available for training in Jobs and Cycles table
+- refactor data types. i.e use sets more
+- Should I be using BFS?
 
 ##Todo today:
 - sort jobs better in finder algorithm

@@ -1,21 +1,21 @@
 
 
 class Person:
-    def __init__(self, name, all_jobs=None, jobs_in_training=None):
+    def __init__(self, name, all_jobs=None, jobs_needing_supervision=None):
         self._all_jobs = [] if all_jobs is None else all_jobs
-        self._jobs_training = [] if jobs_in_training is None else jobs_in_training
+        self._jobs_needing_supervision = [] if jobs_needing_supervision is None else jobs_needing_supervision
         self._name = name
 
     def get_all_jobs(self):
         return self._all_jobs
 
-    def add_job(self, job, trainee=False):
+    def add_job(self, job, supervision_needed=False):
         self._all_jobs.append(job)
-        if trainee:
-            self._jobs_training.append(job)
+        if supervision_needed:
+            self._jobs_needing_supervision.append(job)
 
-    def is_in_training(self, job):
-        return job in self._jobs_training
+    def needs_supervision(self, job):
+        return job in self._jobs_needing_supervision
 
     def get_name(self):
         return self._name
