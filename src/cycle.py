@@ -1,51 +1,46 @@
+from roaster import Roaster
+from slot import Slot
+from job import Job
 from person import Person
 
 
 class Cycle:
-    def __init__(self, name: str, jobs_needed=None, people_available=None, jobs_assigned=None):
+    def __init__(self, name: str, roaster: Roaster):
         self._name = name
-        self._jobs = [] if jobs_needed is None else jobs_needed
-        self._people = [] if people_available is None else people_available
-        # maps people to job
-        self._assigned = {} if jobs_assigned is None else jobs_assigned
+        self._slots = set()
+        self._people = set()
+        self._roaster = roaster
 
-    def get_spare_people(self) -> Person:
+    def get_people(self) -> set[Person]:
         return self._people
 
-    def get_all_people(self) -> set[Person]:
-        return self._people + list(self._assigned.keys())
-
-    def get_spare_jobs(self):
-        return self._jobs
-
-    def get_all_jobs(self):
-        return self._jobs + list(self._assigned.values())
-
-    def assign(self, job, person):
-        self._assigned[person] = job
-        self._people.remove(person)
-        self._jobs.remove(job)
-
-    def add_job(self, job):
-        self._jobs.append(job)
+    def add_job(self, job: Job, available_for_training: bool = False) -> bool:
+        """
+        Adds a job to the roaster in this cycle.
+        returns weather or not it found someone that could do the job
+        """
+        slot = Slot(self, job, available_for_training)
+        self._slots.add(slot)
+        found = False
+        for person in self._people:
+            if person.can_do_job(job) and (available_for_training or not person.needs_supervision(job)):
+                self._roaster.add_possible_slot(person, slot)
+                found = True
+        return found
 
     def add_person(self, person):
-        self._people.append(person)
+        self._people.add(person)
+        for slot in self._slots:
+            if person.can_do_job(slot.job) and (slot.available_for_training or not person.needs_supervision(slot.job)):
+                self._roaster.add_possible_slot(person, slot)
 
-    def copy(self):
-        return Cycle(self._name, self._jobs.copy(), self._people.copy(), self._assigned.copy())
-
-    def get_assigned(self):
-        return self._assigned
-
-    def get_persons_job(self, person):
-        return self._assigned[person]
+    def assign(self, person: Person, job: Job):
+        for slot in self._slots:
+            if slot.job is job:
+                self._roaster.assign(person, slot)
+                break
 
     def get_name(self):
         return self._name
 
-    def is_assigned(self, person):
-        return person in self._assigned
 
-    def __str__(self):
-        return self._name

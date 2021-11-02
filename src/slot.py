@@ -1,4 +1,3 @@
-#from cycle2 import Cycle
 from job import Job
 
 

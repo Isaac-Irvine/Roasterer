@@ -2,11 +2,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from tabulate import tabulate
 
-#from finder import find_roaster
-from finder2 import fill_roaster
-from time import time
-
-from table_parsing2 import parse_table
+from table_parsing import parse_table
 
 print('connecting to google sheets')
 
@@ -27,9 +23,7 @@ print('got all google data')
 roaster, cycles, jobs = parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_coding)
 
 print('starting finder')
-start_time = time()
 roaster.fill()
-print(f'time taken: {time() - start_time}s')
 roaster_as_table = roaster.to_table(cycles, jobs)
 
 print(tabulate(roaster_as_table, headers='firstrow'))

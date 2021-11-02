@@ -13,7 +13,8 @@ def to_bool(string):
 
 
 def parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_coding):
-    cycles = [Cycle(f'Cycle {i}') for i in range(1, 5)]
+    roaster = Roaster()
+    cycles = [Cycle(f'Cycle {i}', roaster) for i in range(1, 5)]
 
     jobs = {}
     people = {}
@@ -25,27 +26,16 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_codi
 
         for i in range(0, 4):
             if to_bool(row[i + 2]):
-                cycles[i].add_job(job)
-
-    # parsing people and availability table
-    for row in filter(lambda r: r[0] != '', people_availability[1:]):
-        name = row[0]
-        person = Person(name)
-        people[name] = person
-
-        for cycle, cell in zip(cycles, row[1:5]):
-            if to_bool(cell):
-                cycle.add_person(person)
+                cycles[i].add_job(job, to_bool(row[i + 6]))
 
     # parse people and jobs table
     jobs_list = [jobs[j] for j in people_jobs[0][1:]]
 
     for row in filter(lambda r: r[0] != '', people_jobs[1:]):
-        if row[0] not in people:
-            raise RuntimeError(
-                f'There is a person called "{row[0]}" in the People and Jobs sheet thats not in the People and Availability sheet'
-            )
-        person = people[row[0]]
+        name = row[0]
+        person = Person(name)
+        people[name] = person
+
         for i, cell in enumerate(row[1:]):
             if cell == '':
                 continue
@@ -54,10 +44,22 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_codi
             if cell == 'Trainer':
                 person.add_job(job.get_supervisor_job())
 
+    # parsing people and availability table
+    for row in filter(lambda r: r[0] != '', people_availability[1:]):
+        if row[0] not in people:
+            raise RuntimeError(
+                f'There is a person called "{row[0]}" in the People and Availability sheet thats not in the People and Jobs sheet'
+            )
+        person = people[row[0]]
+
+        for cycle, cell in zip(cycles, row[1:5]):
+            if to_bool(cell):
+                cycle.add_person(person)
+
     # parsing roaster hard coding
     for cycle, row in zip(cycles, filter(lambda r: r[0] != '', roaster_hard_coding[1:])):
         for job, cell in zip(jobs_list, row[1:]):
             if cell != '':
-                cycle.assign(job, people[cell])  # TODO: validate this
+                cycle.assign(people[cell], job)  # TODO: validate this
 
-    return Roaster(cycles, jobs_list)
+    return roaster, cycles, jobs_list
