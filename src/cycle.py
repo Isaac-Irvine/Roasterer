@@ -9,7 +9,7 @@ class Cycle:
         # maps people to job
         self._assigned = {} if jobs_assigned is None else jobs_assigned
 
-    def get_spare_people(self) -> set[Person]:
+    def get_spare_people(self) -> Person:
         return self._people
 
     def get_all_people(self) -> set[Person]:
