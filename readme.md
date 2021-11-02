@@ -7,16 +7,12 @@ Somewhat working but has bugs, not all features are implemented yet and next to 
 
 ##Todo:
 - add more documentation.
-- fix bug where it runs forever if there is more people than jobs
 - add data validation with useful error messages to google sheets
-- if it can't make a complete timetable, make an incomplete one and/or report back why
-- make roaster look nicer. Maybe export data back to google sheets
+- if it can't make a complete timetable, report back why
 - add in wild cards
 - add available for training in Jobs and Cycles table
 - refactor data types. i.e use sets more
-- find a way to calculate weather its possible to have a valid roaster
-- Should I be using BFS? probably yeah
 
-#Known bugs
-- finder algorithm not guaranteed to find best solution
-- will search for longer than the lifetime of the universe if no solution is available
+## known issues in algorithm
+- doesn't check if having a trainee will mean all roles can't be filled
+- not super random. This one I know how to fix but haven't yet

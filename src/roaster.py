@@ -10,6 +10,12 @@ class Roaster:
     def get_cycles(self):
         return self._cycles
 
+    def get_all_people(self):
+        people = set()
+        for cycle in self._cycles:
+            people = people.union(cycle.get_all_people())
+        return people
+
     def copy(self):
         return Roaster(self._cycles.copy(), jobs_display_order=self._job_order)
 
