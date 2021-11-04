@@ -20,11 +20,11 @@ roaster_sheet = spreadsheet.get_worksheet_by_id(1316761516)
 
 print('got all google data')
 
-roaster, cycles, jobs = parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_coding)
+roaster = parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_coding)
 
 print('starting finder')
 roaster.fill()
-roaster_as_table = roaster.to_table(cycles, jobs)
+roaster_as_table = roaster.to_table()
 
 print(tabulate(roaster_as_table, headers='firstrow'))
 

@@ -11,4 +11,4 @@ Somewhat working but has bugs, not all features are implemented yet and next to 
 - if it can't make a complete timetable, report back why
 
 ## known issues in algorithm
-- very occasionally won't find perfect cycle if training is involves training
+- wont always be able to find trainer

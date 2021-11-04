@@ -21,13 +21,16 @@ class Roaster:
 
     def __init__(self):
         self._possible_slots = dict()  # maps people to set of possible slots. All the slots currently searching
-        self._easy_slots = dict()
-        self._multiple_slots = dict()
-        self._repeating_slots = dict()
-        self._consecutive_slots = dict()
         self._assigned_people = dict()  # maps slots to people
         self._cycles = []
         self._jobs_order = []
+
+        self._multiple_slots = dict()
+        self._repeating_slots = dict()
+        self._consecutive_slots = dict()
+        self._multiple_hard_slots = dict()
+        self._repeating_hard_slots = dict()
+        self._consecutive_hard_slots = dict()
 
     def _cycles_next_to(self, cycle_1, cycle_2):
         return abs(self._cycles.index(cycle_1) - self._cycles.index(cycle_2)) == 1
@@ -54,35 +57,57 @@ class Roaster:
         for slots in self._possible_slots.values():
             if slot in slots:
                 slots.remove(slot)
-        for slots in self._repeating_slots.values():
+        for slots in self._multiple_slots.values():
             if slot in slots:
                 slots.remove(slot)
-        for slots in self._multiple_slots.values():
+        for slots in self._repeating_slots.values():
             if slot in slots:
                 slots.remove(slot)
         for slots in self._consecutive_slots.values():
             if slot in slots:
                 slots.remove(slot)
+        for slots in self._multiple_hard_slots.values():
+            if slot in slots:
+                slots.remove(slot)
+        for slots in self._repeating_hard_slots.values():
+            if slot in slots:
+                slots.remove(slot)
+        for slots in self._consecutive_hard_slots.values():
+            if slot in slots:
+                slots.remove(slot)
 
         # remove other jobs in cycle from person. Person can't do more than one job per cycle
         self._possible_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._possible_slots[person]))
-        if person in self._easy_slots:
-            self._easy_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._easy_slots[person]))
-
-        # avoid doing same job in a row or 2 hard jobs in a row
-        repeat, no_repeat = _split_set(lambda s: s.job == slot.job, self._possible_slots[person])
-        self._possible_slots[person] = no_repeat
-        consecutive, nonconsecutive = _split_set(lambda s: self._cycles_next_to(s.cycle, slot.cycle), repeat)
+        if person in self._multiple_slots:
+            self._multiple_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._multiple_slots[person]))
         if person in self._repeating_slots:
-            self._repeating_slots[person] = self._repeating_slots[person].union(nonconsecutive)
-        else:
-            self._repeating_slots[person] = nonconsecutive
+            self._repeating_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._repeating_slots[person]))
         if person in self._consecutive_slots:
-            self._consecutive_slots[person] = self._consecutive_slots[person].union(consecutive)
-        else:
-            self._consecutive_slots[person] = nonconsecutive
+            self._consecutive_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._consecutive_slots[person]))
+        if person in self._multiple_hard_slots:
+            self._multiple_hard_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._multiple_hard_slots[person]))
+        if person in self._repeating_hard_slots:
+            self._repeating_hard_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._repeating_hard_slots[person]))
+        if person in self._consecutive_hard_slots:
+            self._consecutive_hard_slots[person] = set(filter(lambda s: s.cycle != slot.cycle, self._consecutive_hard_slots[person]))
 
-        self._multiple_slots[person] = self._possible_slots[person]
+        repeating, non_repeating = _split_set(lambda s: s.job == slot.job, self._possible_slots[person])
+        consecutive, non_consecutive_repeating = _split_set(lambda s: self._cycles_next_to(s.cycle, slot.cycle), repeating)
+        if slot.job.is_hard():
+            non_repeating_hard, non_repeating_easy = _split_set(lambda s: s.job.is_hard(), non_repeating)
+            consecutive_hard, consecutive_easy = _split_set(lambda s: s.job.is_hard(), consecutive)
+            non_consecutive_repeating_hard, non_consecutive_repeating_easy = _split_set(lambda s: s.job.is_hard(), non_consecutive_repeating)
+            self._multiple_slots[person] = non_repeating_easy
+            self._consecutive_slots[person] = consecutive_easy
+            self._repeating_slots[person] = non_consecutive_repeating_easy
+            self._multiple_hard_slots[person] = non_repeating_hard
+            self._consecutive_hard_slots[person] = consecutive_hard
+            self._repeating_hard_slots[person] = non_consecutive_repeating_hard
+        else:
+            self._multiple_slots[person] = non_repeating
+            self._consecutive_slots[person] = consecutive
+            self._repeating_slots[person] = non_consecutive_repeating
+
         self._possible_slots[person] = set()
 
     def _get_people_with_least_slots(self) -> list[Person]:
@@ -118,16 +143,9 @@ class Roaster:
         return False
 
     def fill(self):
-        # split hards and non-hards here
-        # do hards first, then non-hards
-        for person in self._possible_slots:
-            hard, easy = _split_set(lambda s: s.job.is_hard(), self._possible_slots[person])
-            self._easy_slots[person] = easy
-            self._possible_slots[person] = hard
-
         while self._possible_slots:
-            self.print_table()
             self._fill()
+
             if self._multiple_slots:
                 self._possible_slots = self._multiple_slots
                 self._multiple_slots = dict()
@@ -137,20 +155,15 @@ class Roaster:
             elif self._consecutive_slots:
                 self._possible_slots = self._consecutive_slots
                 self._consecutive_slots = dict()
-
-        self._possible_slots = self._easy_slots
-
-        while self._possible_slots:
-            self._fill()
-            if self._multiple_slots:
-                self._possible_slots = self._multiple_slots
-                self._multiple_slots = dict()
-            elif self._repeating_slots:
-                self._possible_slots = self._repeating_slots
-                self._repeating_slots = dict()
-            elif self._consecutive_slots:
-                self._possible_slots = self._consecutive_slots
-                self._consecutive_slots = dict()
+            elif self._multiple_hard_slots:
+                self._possible_slots = self._multiple_hard_slots
+                self._multiple_hard_slots = dict()
+            elif self._repeating_hard_slots:
+                self._possible_slots = self._repeating_hard_slots
+                self._repeating_hard_slots = dict()
+            elif self._consecutive_hard_slots:
+                self._possible_slots = self._consecutive_hard_slots
+                self._consecutive_hard_slots = dict()
 
     def _fill(self):
         while len(self._possible_slots):

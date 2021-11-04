@@ -1,7 +1,7 @@
 from cycle import Cycle
 from job import Job
 from person import Person
-from roaster import Roaster
+from roaster3 import Roaster
 
 
 def to_bool(string):
@@ -62,4 +62,6 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_codi
             if cell != '':
                 cycle.assign(people[cell], job)  # TODO: validate this
 
-    return roaster, cycles, jobs_list
+    roaster.set_jobs_order(jobs_list)
+
+    return roaster

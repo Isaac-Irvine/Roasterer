@@ -10,6 +10,7 @@ class Cycle:
         self._slots = set()
         self._people = set()
         self._roaster = roaster
+        roaster.add_cycle(self)
 
     def get_people(self) -> set[Person]:
         return self._people
