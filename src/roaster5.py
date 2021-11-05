@@ -17,6 +17,15 @@ def _split_set(func, the_set: set):
     return set_1, set_2
 
 
+def _contains_slot(slots: dict[Person, set[Slot]], slot: Slot, excluded: Person = None) -> bool:
+    for person, slots_ in slots.items():
+        if person is excluded:
+            continue
+        if slot in slots_:
+            return True
+    return False
+
+
 class Roaster:
 
     def __init__(self):
@@ -49,6 +58,55 @@ class Roaster:
             self._possible_slots[person].add(slot)
         else:
             self._possible_slots[person] = {slot}
+
+    def _can_assign(self, person: Person, slot: Slot, stop=False):
+        # get all slots from everyone except person
+        # if slots isn't in this list, then noby else can do it and it can't be assigned
+        return (
+            _contains_slot(self._possible_slots, slot, person)
+            or _contains_slot(self._multiple_slots, slot, person)
+            or _contains_slot(self._repeating_slots, slot, person)
+            or _contains_slot(self._consecutive_slots, slot, person)
+            or _contains_slot(self._multiple_hard_slots, slot, person)
+            or _contains_slot(self._repeating_hard_slots, slot, person)
+            or _contains_slot(self._consecutive_hard_slots, slot, person)
+        )
+
+        other_slots = self._possible_slots[person]
+        if person in self._multiple_slots:
+            other_slots = other_slots.union(self._multiple_slots[person])
+        if person in self._repeating_slots:
+            other_slots = other_slots.union(self._repeating_slots[person])
+        if person in self._consecutive_slots:
+            other_slots = other_slots.union(self._consecutive_slots[person])
+        if person in self._multiple_hard_slots:
+            other_slots = other_slots.union(self._multiple_hard_slots[person])
+        if person in self._repeating_hard_slots:
+            other_slots = other_slots.union(self._repeating_hard_slots[person])
+        if person in self._consecutive_hard_slots:
+            other_slots = other_slots.union(self._consecutive_hard_slots[person])
+
+        if stop:
+            pass
+
+        return _contains_slot()
+
+        found = False
+        for s in other_slots:
+            if s.cycle != slot.cycle or s is slot:
+                continue
+            found = True
+            if (
+                _contains_slot(self._possible_slots, s, person)
+                or _contains_slot(self._multiple_slots, s, person)
+                or _contains_slot(self._repeating_slots, s, person)
+                or _contains_slot(self._consecutive_slots, s, person)
+                or _contains_slot(self._multiple_hard_slots, s, person)
+                or _contains_slot(self._repeating_hard_slots, s, person)
+                or _contains_slot(self._consecutive_hard_slots, s, person)
+            ):
+                return True
+        return not found
 
     def assign(self, person: Person, slot: Slot):
         self._assigned_people[slot] = person
@@ -134,15 +192,6 @@ class Roaster:
                 least_people.append(slot)
         return least_people
 
-    def _contains_job(self, job: Job, excluded: Person = None) -> bool:
-        for person, slots in self._possible_slots.items():
-            if person is excluded:
-                continue
-            for slot in slots:
-                if slot.job is job:
-                    return True
-        return False
-
     def fill(self):
         while self._possible_slots:
             self._fill()
@@ -166,15 +215,32 @@ class Roaster:
                 self._possible_slots = self._consecutive_hard_slots
                 self._consecutive_hard_slots = dict()
 
+    def _assign_compolsery(self):
+        to_assign = set()
+        for person, slots in self._possible_slots.items():
+            for s in slots:
+                if not self._can_assign(person, s):
+                    print(f'has to assign {s} to {person}')
+                    to_assign.add((person, s))
+        for person, slot in to_assign:
+            self.assign(person, slot)
+        if to_assign:
+            self._assign_compolsery()  # I know this is a sin but I am in a rush. tbh that logic appies to everything in this program. I'm so so sorry to whoever has to maintaing this
+
     def _fill(self):
         while len(self._possible_slots):
+            self._assign_compolsery()
             person = choice(self._get_people_with_least_slots())
 
             if len(self._possible_slots[person]) == 0:
                 self._possible_slots.pop(person)
                 continue
 
+            self.print_table()
+
             slot = choice(self._get_slots_with_least_people(person))
+
+            print(f'trying to assign {person} {slot}')
 
             # if the jobs needs a supervisor, make a supervisor job
             # but if nobody can do the supervisor role, remove the role from the person
