@@ -1,47 +1,48 @@
-from roaster import Roaster
-from slot import Slot
+from slot import Slot, PotentialSlots
 from job import Job
 from person import Person
 
 
 class Cycle:
-    def __init__(self, name: str, roaster: Roaster):
-        self._name = name
-        self._slots = set()
-        self._people = set()
-        self._roaster = roaster
-        roaster.add_cycle(self)
+    def __init__(self, number: int):
+        self._number = number
+        self._slots = PotentialSlots()
 
-    def get_people(self) -> set[Person]:
-        return self._people
-
-    def add_job(self, job: Job, available_for_training: bool = False) -> bool:
+    def add_job(self, job: Job, available_for_training: bool = False):
         """
         Adds a job to the roaster in this cycle.
-        returns weather or not it found someone that could do the job
         """
         slot = Slot(self, job, available_for_training)
-        self._slots.add(slot)
-        found = False
-        for person in self._people:
+        self._slots.add_slot(slot)
+        for person in self._slots.get_people():
             if person.can_do_job(job) and (available_for_training or not person.needs_supervision(job)):
-                self._roaster.add_possible_slot(person, slot)
-                found = True
-        return found
+                self._slots.add_potential_person(slot, person)
 
-    def add_person(self, person):
-        self._people.add(person)
-        for slot in self._slots:
-            if person.can_do_job(slot.job) and (slot.available_for_training or not person.needs_supervision(slot.job)):
-                self._roaster.add_possible_slot(person, slot)
+    def add_person(self, person: Person, casual: bool):
+        self._slots.add_person(person)
+        for slot in self._slots.get_slots():
+            if (
+                not person.can_do_job(slot.job)
+                or (not slot.available_for_training and person.needs_supervision(slot.job))
+                or (casual and not slot.job.is_casual())
+            ):
+                continue
+            self._slots.add_potential_person(slot, person)
 
-    def assign(self, person: Person, job: Job):
-        for slot in self._slots:
-            if slot.job is job:
-                self._roaster.assign(person, slot)
-                break
+    def get_potential_slots(self) -> PotentialSlots:
+        return self._slots
 
-    def get_name(self):
-        return self._name
+    def get_people(self) -> set[Person]:
+        return self._slots.get_people()
 
+    def get_name(self) -> str:
+        return f'Cycle {self._number}'
 
+    def __repr__(self) -> str:
+        return f'Cycle {self._number}'
+
+    def get_number(self):
+        return self._number
+
+    def next_to(self, cycle: 'Cycle'):
+        return abs(cycle._number - self._number) == 1
