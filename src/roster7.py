@@ -18,6 +18,10 @@ class Roster:
         self._assigned_slots: dict[Slot, Person] = dict()
         self._cycles: list[Cycle] = []
         self._jobs_order: list[Job] = []
+        self._people = set()
+
+    def add_person(self, person: Person):
+        self._people.add(person)
 
     def add_cycle(self, cycle: Cycle):
         """
@@ -28,6 +32,12 @@ class Roster:
 
         if not cycle.get_potential_slots().can_fill():
             print(f'Can\'t fill all of {cycle}\'s slots')
+
+    def get_cycles(self) -> list[Cycle]:
+        return self._cycles
+
+    def get_jobs(self) -> list[Job]:
+        return self._jobs_order
 
     def set_jobs_order(self, jobs_order: list[Job]):
         """
@@ -49,36 +59,42 @@ class Roster:
         # don't assign this person other slots in the same cycle
         self._slots.filter_slots_from_people(lambda s: s.cycle is not slot.cycle, person)
 
-        self._clear_bad_slots(slot)
+        self._clear_bad_slots(person)
 
-    def _clear_bad_slots(self, slot: Slot):
+    def unassign(self, slot: Slot):
+        self._assigned_slots.pop(slot)
+
+    def get_slots(self) -> set[Slot]:
+        return self._slots.get_slots()
+
+    def _clear_bad_slots(self, person: Person):
         """
         Clears as many 'bad slots' as possible without leaving any unassigned slots with no potential people.
         Bad slots are things like slots where people would be on the trap line twice in a row. I.e. consecutive hards
         """
 
-        self._slots.try_filter_slots2(
+        self._slots.try_filter_slots(
             [
                 # same hard job in cycle 2 and 3
-                #lambda s1, s2:
-                #s1.job is s2.job
-                #and s1.job.is_hard()
-                #and s1.cycle in {self._cycles[1], self._cycles[2]}
-                #and s2.cycle in {self._cycles[1], self._cycles[2]},
+                lambda s1, s2:
+                s1.job is s2.job
+                and s1.job.is_hard()
+                and s1.cycle in {self._cycles[1], self._cycles[2]}
+                and s2.cycle in {self._cycles[1], self._cycles[2]},
 
                 # two hard jobs in the same line in cycle 2 and 3
-                #lambda s1, s2:
-                #s1.job.get_job_group() is not None
-                #and s1.job.get_job_group() is s2.job.get_job_group()
-                #and s1.job.is_hard() and s2.job.is_hard()
-                #and s1.cycle in {self._cycles[1], self._cycles[2]}
-                #and s2.cycle in {self._cycles[1], self._cycles[2]},
+                lambda s1, s2:
+                s1.job.get_job_group() is not None
+                and s1.job.get_job_group() is s2.job.get_job_group()
+                and s1.job.is_hard() and s2.job.is_hard()
+                and s1.cycle in {self._cycles[1], self._cycles[2]}
+                and s2.cycle in {self._cycles[1], self._cycles[2]},
 
                 # two hard jobs in cycle 2 and 3
-                #lambda s1, s2:
-                #s1.job.is_hard() and s2.job.is_hard()
-                #and s1.cycle in {self._cycles[1], self._cycles[2]}
-                #and s2.cycle in {self._cycles[1], self._cycles[2]},
+                lambda s1, s2:
+                s1.job.is_hard() and s2.job.is_hard()
+                and s1.cycle in {self._cycles[1], self._cycles[2]}
+                and s2.cycle in {self._cycles[1], self._cycles[2]},
 
                 # same hard job consecutively
                 lambda s1, s2:
@@ -87,42 +103,42 @@ class Roster:
                 and s1.cycle.next_to(s2.cycle),
 
                 # two hard jobs in the same line consecutively
-                #lambda s1, s2:
-                #s1.job.get_job_group() is not None
-                #and s1.job.get_job_group() is s2.job.get_job_group()
-                #and s1.job.is_hard() and s2.job.is_hard()
-                #and s1.cycle.next_to(s2.cycle),
+                lambda s1, s2:
+                s1.job.get_job_group() is not None
+                and s1.job.get_job_group() is s2.job.get_job_group()
+                and s1.job.is_hard() and s2.job.is_hard()
+                and s1.cycle.next_to(s2.cycle),
 
                 # two hard jobs consecutively
-                #lambda s1, s2:
-                #s1.job.is_hard() and s2.job.is_hard()
-                #and s1.cycle.next_to(s2.cycle),
+                lambda s1, s2:
+                s1.job.is_hard() and s2.job.is_hard()
+                and s1.cycle.next_to(s2.cycle),
 
                 # same job in cycle 2 and 3
-                #lambda s1, s2:
-                #s1.job is s2.job
-                #and s1.cycle in {self._cycles[1], self._cycles[2]}
-                #and s2.cycle in {self._cycles[1], self._cycles[2]},
+                lambda s1, s2:
+                s1.job is s2.job
+                and s1.cycle in {self._cycles[1], self._cycles[2]}
+                and s2.cycle in {self._cycles[1], self._cycles[2]},
 
                 # two jobs in the same line in cycle 2 and 3
-                #lambda s1, s2:
-                #s1.job.get_job_group() is not None
-                #and s1.job.get_job_group() is s2.job.get_job_group()
-                #and s1.cycle in {self._cycles[1], self._cycles[2]}
-                #and s2.cycle in {self._cycles[1], self._cycles[2]},
+                lambda s1, s2:
+                s1.job.get_job_group() is not None
+                and s1.job.get_job_group() is s2.job.get_job_group()
+                and s1.cycle in {self._cycles[1], self._cycles[2]}
+                and s2.cycle in {self._cycles[1], self._cycles[2]},
 
                 # same job consecutively
-                #lambda s1, s2:
-                #s1.job is s2.job
-                #and s1.cycle.next_to(s2.cycle),
+                lambda s1, s2:
+                s1.job is s2.job
+                and s1.cycle.next_to(s2.cycle),
 
                 # two jobs in the same line consecutively
-                #lambda s1, s2:
-                #s1.job.get_job_group() is not None
-                #and s1.job.get_job_group() is s2.job.get_job_group()
-                #and s1.cycle.next_to(s2.cycle),
+                lambda s1, s2:
+                s1.job.get_job_group() is not None
+                and s1.job.get_job_group() is s2.job.get_job_group()
+                and s1.cycle.next_to(s2.cycle),
 
-                ## multiple of the same hard job
+                # multiple of the same hard job
                 #lambda s1, s2:
                 #s1.job is s2.job
                 #and s1.job.is_hard(),
@@ -146,12 +162,13 @@ class Roster:
                 #s1.job.get_job_group() is not None
                 #and s1.job.get_job_group() is s2.job.get_job_group(),
             ],
-            slot,
+            person,
             self._assigned_slots
         )
 
     def fill(self):
         while self._slots.has_remaining_slots():
+            print()
             slots = self._slots.get_best_slots()
             slot = choice(list(slots.keys()))
             person = choice(list(slots[slot]))
@@ -166,7 +183,10 @@ class Roster:
             '''
             print(f'assigning {person} to {slot}')
             self.assign(person, slot)
-            self.print_table()
+            print(tabulate(self.to_table(), headers='firstrow'))
+
+        print()
+        print(tabulate(self.to_table_people(), headers='firstrow'))
 
     def _has_job(self, person: Person, cycle=None) -> bool:
         for slot, p in self._assigned_slots.items():
@@ -176,11 +196,25 @@ class Roster:
                 return True
         return False
 
+    def get_available(self, cycle: Cycle) -> set[Person]:
+        people = set()
+        for person in cycle.get_available():
+            if not self._has_job(person, cycle):
+                people.add(person)
+        return people
+
+    def get_casually_available(self, cycle: Cycle) -> set[Person]:
+        people = set()
+        for person in cycle.get_casually_available():
+            if not self._has_job(person, cycle):
+                people.add(person)
+        return people
+
     def get_slot(self, job: Job, cycle: 'Cycle') -> Slot:
         return self._slots.get_slot(job, cycle)
 
-    def print_table(self):
-        print(tabulate(self.to_table(), headers='firstrow'))
+    def get_assigned(self) -> dict[Slot, Person]:
+        return self._assigned_slots
 
     def to_table(self) -> list[list[str]]:
         # add all the jobs that aren't already in jobs_order into it

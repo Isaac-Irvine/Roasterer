@@ -12,12 +12,13 @@ def to_bool(string):
     raise RuntimeError(f'Cell is not TRUE or FALSE. Got "{string}"')
 
 
-def parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_coding):
+def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_coding):
     cycles = [Cycle(i) for i in range(1, 5)]
 
     jobs = {}  # maps names of jobs to jobs
     job_groups = {}  # maps names of job groups to job groups
     people = {}  # maps peoples names to people
+    roaster = Roster()
 
     # parsing jobs and cycles table
     for row in filter(lambda r: r[0] != '', jobs_cycles[1:]):
@@ -42,6 +43,7 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_codi
         name = row[0]
         person = Person(name)
         people[name] = person
+        roaster.add_person(person)
 
         for i, cell in enumerate(row[1:]):
             if cell == '':
@@ -67,16 +69,15 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roaster_hard_codi
                 cycle.add_person(person, True)
 
     # setting up roaster
-    roaster = Roster()
     roaster.set_jobs_order(jobs_list)
     for cycle in cycles:
         roaster.add_cycle(cycle)
 
     # parsing roaster hard coding
-    for cycle, row in zip(cycles, filter(lambda r: r[0] != '', roaster_hard_coding[1:])):
+    for cycle, row in zip(cycles, filter(lambda r: r[0] != '', roster_hard_coding[1:])):
         for job, cell in zip(jobs_list, row[1:]):
             if cell != '':
-                if cell not in people:
+                if cell not in people:  # TODO: This doesn't catch people if they are unavailable but still assigned
                     raise RuntimeError(
                         f'nobody called {cell} found in the Roaster hard coding sheet. '
                         f'If this isn\'t a typo, make sure the person is in the People and Job sheet'

@@ -9,6 +9,3 @@ Somewhat working but has bugs, not all features are implemented yet and next to 
 - add more documentation.
 - add data validation with useful error messages to google sheets
 - if it can't make a complete timetable, report back why
-
-## known issues in algorithm
-- wont always be able to find trainer

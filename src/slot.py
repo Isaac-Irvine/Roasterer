@@ -31,7 +31,6 @@ class PotentialSlots:
         for slot in self._slots_to_people:
             if slot.job is job and slot.cycle is cycle:
                 return slot
-        raise RuntimeError(f'Can\'t find a slot with the job \'{job}\' in the cycle \'{cycle}\'')
 
     def get_people_for_slot(self, slot: Slot) -> set[Person]:
         return self._slots_to_people[slot]
@@ -142,39 +141,44 @@ class PotentialSlots:
             new._cycles[cycle] = slots.copy()
         return new
 
-    def try_filter_slots2(self, conditions: list[Callable[[Slot, Slot], bool]], person: Person, assigned_slots: dict[Slot, Person]):
+    def try_filter_slots(self, conditions: list[Callable[[Slot, Slot], bool]], person: Person, assigned_slots: dict[Slot, Person]):
         for condition in conditions:
-            for slot in self._slots_to_people:
-                if len(self._slots_to_people[slot]) == 0:
-                    continue
+            slots: dict[int, set[Slot]] = dict()
+            for potential_slot in self._people_to_slots[person]:
+                num = 0
+                for assigned_slot, assigned_person in assigned_slots.items():
+                    if assigned_person is person and condition(potential_slot, assigned_slot):
+                        num += 1
+                if num in slots:
+                    slots[num].add(potential_slot)
+                else:
+                    slots[num] = {potential_slot}
 
-                people: OrderedDict[int, set[Person]] = OrderedDict()
-                for person in self._slots_to_people[slot]:
-                    num = 0
-                    for s, p in assigned_slots.items():
-                        if p is person and condition(slot, s):
-                            num += 1
-                    if num in people:
-                        people[num].add(person)
-                    else:
-                        people[num] = {person}
+            slot_nums = list(slots.keys())
+            slot_nums.sort()
 
-                if len(people) == 1:
-                    continue
+            # remove all slots then add them back as needed
+            num_of_slots = len(list(filter(lambda i: i, self._slots_to_people.values())))
 
-                self.remove_slot(slot)
-                self.add_slot(slot)
+            for slot in self._people_to_slots[person].copy():
+                self._slots_to_people[slot].remove(person)
+                self._people_to_slots[person].remove(slot)
 
-                for p in people.values():
-                    for person in p:
-                        self.add_potential_person(slot, person)
-                    if self.can_fill(conditions[:conditions.index(condition)]):
-                        break
+            for num in slot_nums:
+                if (
+                        num != 0
+                        and len(list(filter(lambda i: i, self._slots_to_people.values()))) == num_of_slots
+                        and self.can_fill()  # conditions[:conditions.index(condition)]
+                ):
+                    break
+                for slot in slots[num]:
+                    self._slots_to_people[slot].add(person)
+                    self._people_to_slots[person].add(slot)
 
-                for people_group in people.values():
-                    for person in people_group:
-                        if person not in self._slots_to_people[slot]:
-                            print(f'removed {slot} from {person}')
+            for num in slot_nums:
+                for slot in slots[num]:
+                    if slot not in self._people_to_slots[person]:
+                        print(f'removed {slot} from {person}')
 
     def can_fill(self, conditions=None):
         if conditions is None:
@@ -196,6 +200,7 @@ class PotentialSlots:
             roaster.filter_slots_from_people(lambda s: s.cycle is not slot.cycle, person)
 
             # clear slot-people combinations that don't meet the requirements
+            '''
             to_remove = set()
             for s1 in roaster._slots_to_people:
                 if len(roaster._slots_to_people[s1]) == 0:
@@ -210,11 +215,9 @@ class PotentialSlots:
             for s, p in to_remove:
                 roaster._slots_to_people[s].remove(p)
                 roaster._people_to_slots[p].remove(s)
+            '''
 
             num_filled += 1
-
-        if num_of_slots != num_filled:
-            pass
 
         return num_of_slots == num_filled
 

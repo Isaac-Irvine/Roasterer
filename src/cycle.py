@@ -7,6 +7,8 @@ class Cycle:
     def __init__(self, number: int):
         self._number = number
         self._slots = PotentialSlots()
+        self.available_people = set()
+        self.casually_available_people = set()
 
     def add_job(self, job: Job, available_for_training: bool = False):
         """
@@ -19,6 +21,11 @@ class Cycle:
                 self._slots.add_potential_person(slot, person)
 
     def add_person(self, person: Person, casual: bool):
+        if casual:
+            self.casually_available_people.add(person)
+        else:
+            self.available_people.add(person)
+
         self._slots.add_person(person)
         for slot in self._slots.get_slots():
             if (
@@ -34,6 +41,12 @@ class Cycle:
 
     def get_people(self) -> set[Person]:
         return self._slots.get_people()
+
+    def get_available(self) -> set[Person]:
+        return self.available_people
+
+    def get_casually_available(self) -> set[Person]:
+        return self.casually_available_people
 
     def get_name(self) -> str:
         return f'Cycle {self._number}'
