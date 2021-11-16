@@ -48,6 +48,14 @@ class Cycle:
     def get_casually_available(self) -> set[Person]:
         return self.casually_available_people
 
+    def set_casual(self, person: Person, casual: bool):
+        if casual and person in self.available_people:
+            self.available_people.remove(person)
+            self.casually_available_people.add(person)
+        if not casual and person in self.casually_available_people:
+            self.available_people.add(person)
+            self.casually_available_people.remove(person)
+
     def get_name(self) -> str:
         return f'Cycle {self._number}'
 

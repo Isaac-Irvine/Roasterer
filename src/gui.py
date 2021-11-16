@@ -1,6 +1,5 @@
 import tkinter as tk
 from os.path import isfile
-from types import NoneType
 
 from PIL import Image, ImageTk
 
@@ -15,18 +14,22 @@ CELL_SIZE = 80
 roster = get_roaster()
 
 window = tk.Tk()
+window.resizable(True, False)
 
 
-canvas = tk.Canvas(window, bg='white')
-canvas.pack(fill='both', expand=True)
+canvas = tk.Canvas(window, bg='white', height=CELL_SIZE * 5, width=1000)
+canvas.pack(expand=True, fill='x')
+
+hbar = tk.Scrollbar(window, orient='horizontal', command=canvas.xview)
+hbar.pack(fill='x')
+canvas.config(xscrollcommand=hbar.set)
+
+canvas.bind_all("<Button-4>", lambda event: canvas.xview_scroll(-1, 'units'))
+canvas.bind_all("<Button-5>", lambda event: canvas.xview_scroll(1, 'units'))
 
 
 class TkSlot:
-    images: dict[Person, ImageTk.PhotoImage] = {}
-    blank_image = ImageTk.PhotoImage(
-        Image.open('images/blank.png').resize((CELL_SIZE - 1, CELL_SIZE - 1), Image.ANTIALIAS)
-        )
-
+    movable = False
     tk_slots: set['TkSlot'] = set()
 
     @staticmethod
@@ -38,44 +41,101 @@ class TkSlot:
             ):
                 return tk_slot
 
-    @staticmethod
-    def update():
-        for tk_slot in TkSlot.tk_slots:
-            if tk_slot.slot is not None:
-                if tk_slot.slot in roster.get_assigned():
-                    tk_slot.set_person(roster.get_assigned()[tk_slot.slot])
-                else:
-                    tk_slot.set_person(None)
-            else:
-                tk_slot.set_person(None)
-
-    def __init__(self, job: Job, cycle: Cycle, person: Person, canvas: tk.Canvas, roster, x, y):
-        self.roster = roster
-        self.tk_slots.add(self)
-        self.canvas = canvas
-        self.x = x
-        self.y = y
+    def __init__(self, row: int, col: int, canvas: tk.Canvas):
+        self.x = col * CELL_SIZE + CELL_SIZE / 2
+        self.y = row * CELL_SIZE + CELL_SIZE / 2
         self.display_x = self.x
         self.display_y = self.y
-        self.job = job
-        self.cycle = cycle
-        self.slot = roster.get_slot(job, cycle)
+        self.tk_slots.add(self)
+        self.canvas = canvas
         self.image_obj = canvas.create_image(self.display_x, self.display_y)
-        self.text_obj = canvas.create_text(self.display_x, self.display_y, text='n/a' if self.slot is None else 'empty')
+        self.text_obj = canvas.create_text(self.display_x, self.display_y)
         canvas.tag_bind(self.image_obj, '<Button1-Motion>', self.move)
         canvas.tag_bind(self.image_obj, '<ButtonRelease-1>', self.release)
         canvas.tag_bind(self.text_obj, '<Button1-Motion>', self.move)
         canvas.tag_bind(self.text_obj, '<ButtonRelease-1>', self.release)
-        self.person = person
-        if person is not None:
-            self.set_person(person)
 
-    def set_person(self, person: Person):
-        self.person = person
-        if person is None:
-            self.canvas.itemconfig(self.image_obj, image=tk.PhotoImage())  # TODO: fix this
-            self.canvas.itemconfig(self.text_obj, text='n/a' if self.slot is None else 'empty')
+    def move(self, event):
+        if not self.movable:
             return
+        x = canvas.canvasx(event.x)
+        y = canvas.canvasy(event.y)
+        self.canvas.tag_raise(self.image_obj)
+        self.canvas.tag_raise(self.text_obj)
+        self.canvas.move(self.image_obj, x - self.display_x, y - self.display_y)
+        self.canvas.move(self.text_obj, x - self.display_x, y - self.display_y)
+        self.display_x = x
+        self.display_y = y
+
+    def release(self, event):
+        if not self.movable:
+            return
+        x = canvas.canvasx(event.x)
+        y = canvas.canvasy(event.y)
+        tk_slot = self.get_slot_at(x, y)
+        if tk_slot is not self:
+            self.dropped_on(tk_slot)
+        self.canvas.move(self.image_obj, self.x - self.display_x, self.y - self.display_y)
+        self.canvas.move(self.text_obj, self.x - self.display_x, self.y - self.display_y)
+        self.display_x = self.x
+        self.display_y = self.y
+
+    def dropped_on(self, other: 'TkSlot'):
+        pass
+
+    def set_text(self, text: str):
+        self.canvas.itemconfig(self.text_obj, text=text)
+
+    def set_image(self, image: ImageTk.PhotoImage):
+        self.canvas.itemconfig(self.image_obj, image=image)
+
+
+class TkEmptySlot(TkSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, slot: Slot):
+        super().__init__(row, col, canvas)
+        self.slot = slot
+        self.set_text('empty')
+
+
+class TkSlotLabel(TkSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, text: str):
+        super().__init__(row, col, canvas)
+        self.set_text(text)
+
+
+class TkJobLabel(TkSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, job: Job):
+        super().__init__(row, col, canvas)
+        self.job = job
+        self.set_text(job.get_name())
+
+
+class TkCycleLabel(TkSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, cycle: Cycle):
+        super().__init__(row, col, canvas)
+        self.cycle = cycle
+        self.set_text('empty')
+
+
+class TkUnavailableSlot(TkSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, job: Job, cycle: Cycle):
+        super().__init__(row, col, canvas)
+        self.job = job
+        self.cycle = cycle
+        self.set_text('not needed')
+
+
+class TkPersonSlot(TkSlot):
+    movable = True
+    images: dict[Person, ImageTk.PhotoImage] = {}
+    blank_image = ImageTk.PhotoImage(
+        Image.open('images/blank.png').resize((CELL_SIZE - 1, CELL_SIZE - 1), Image.ANTIALIAS)
+    )
+
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, person: Person):
+        super().__init__(row, col, canvas)
+        self.person = person
+        self.set_text(person.get_name())
 
         if isfile(f'./images/{person.get_name()}.png'):
             if person in self.images:
@@ -87,97 +147,173 @@ class TkSlot:
                 self.images[person] = image
         else:
             image = self.blank_image
-        self.canvas.itemconfig(self.image_obj, image=image)
-        self.canvas.itemconfig(self.text_obj, text=person.get_name())
-
-    def release(self, event):
-        if self.person is None:
-            return
-        dropped_on = self.get_slot_at(event.x, event.y)
-        if dropped_on is not None and dropped_on.cycle is self.cycle:
-            person = dropped_on.person
-            dropped_on.set_person(self.person)
-            self.set_person(person)
-            if self.slot is not None:
-                if self.slot in roster.get_assigned():
-                    roster.unassign(self.slot)
-                if self.person is not None:
-                    roster.assign(self.person, self.slot)
-            if dropped_on.slot is not None:
-                if dropped_on.slot in roster.get_assigned():
-                    roster.unassign(dropped_on.slot)
-                if dropped_on.person is not None:
-                    roster.assign(dropped_on.person, dropped_on.slot)
-        self.canvas.move(self.image_obj, self.x - self.display_x, self.y - self.display_y)
-        self.canvas.move(self.text_obj, self.x - self.display_x, self.y - self.display_y)
-        self.display_x = self.x
-        self.display_y = self.y
-
-    def move(self, event):
-        if self.person is None:
-            return
-        self.canvas.tag_raise(self.image_obj)
-        self.canvas.tag_raise(self.text_obj)
-        self.canvas.move(self.image_obj, event.x - self.display_x, event.y - self.display_y)
-        self.canvas.move(self.text_obj, event.x - self.display_x, event.y - self.display_y)
-        self.display_x = event.x
-        self.display_y = event.y
+        self.set_image(image)
 
 
-# add axis labels
-for i, job in enumerate(roster.get_jobs()):
-    text = job.get_name()
-    if job.get_job_group() is not None:
-        text += '\n' + job.get_job_group().get_name()
-    if job.is_hard():
-        text += '\nhard'
-    if job.is_casual():
-        text += '\ncasual'
-    text += '\n' * (3 - text.count('\n'))
+class TkAssignedPersonSlot(TkPersonSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, slot: Slot, person: Person):
+        super().__init__(row, col, canvas, person)
+        self.slot = slot
 
-    canvas.create_text(
-        (i + 1) * CELL_SIZE + CELL_SIZE / 2,
-        CELL_SIZE / 2,
-        text=text
-    )
-for i, cycle in enumerate(roster.get_cycles()):
-    canvas.create_text(CELL_SIZE / 2, (i + 1) * CELL_SIZE + CELL_SIZE / 2, text=cycle.get_name())
+    def dropped_on(self, other: 'TkSlot'):
+        if isinstance(other, TkEmptySlot):
+            if self.slot.cycle is not other.slot.cycle:
+                return
+            roster.unassign(self.slot)
+            roster.assign(self.person, other.slot)
+            render_roster()
+        elif isinstance(other, TkAssignedPersonSlot):
+            if self.slot.cycle is not other.slot.cycle:
+                return
+            roster.unassign(self.slot)
+            roster.unassign(other.slot)
+            roster.assign(self.person, other.slot)
+            roster.assign(other.person, self.slot)
+            render_roster()
+        elif isinstance(other, TkSparePersonSlot) or isinstance(other, TkBlankSparePersonSlot):
+            roster.unassign(self.slot)
+            self.slot.cycle.set_casual(self.person, False)
+            render_roster()
+        elif isinstance(other, TkSpareCasualPersonSlot) or isinstance(other, TkBlankSpareCasualPersonSlot):
+            roster.unassign(self.slot)
+            self.slot.cycle.set_casual(self.person, True)
+            render_roster()
 
-# add assigned people
-for i, cycle in enumerate(roster.get_cycles()):
-    for j, job in enumerate(roster.get_jobs()):
-        x = (j + 1) * CELL_SIZE + CELL_SIZE / 2
-        y = (i + 1) * CELL_SIZE + CELL_SIZE / 2
-        slot = roster.get_slot(job, cycle)
-        if slot is not None and slot in roster.get_assigned():
-            TkSlot(job, cycle, roster.get_assigned()[slot], canvas, roster, x, y)
-        else:
-            TkSlot(job, cycle, None, canvas, roster, x, y)
+
+class TkSparePersonSlot(TkPersonSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, cycle: Cycle, person: Person):
+        super().__init__(row, col, canvas, person)
+        self.cycle = cycle
+
+    def dropped_on(self, other: 'TkSlot'):
+        if isinstance(other, TkEmptySlot):
+            if self.cycle is not other.slot.cycle:
+                return
+            roster.assign(self.person, other.slot)
+            render_roster()
+        elif isinstance(other, TkAssignedPersonSlot):
+            if self.cycle is not other.slot.cycle:
+                return
+            roster.unassign(other.slot)
+            roster.assign(self.person, other.slot)
+            render_roster()
+        elif isinstance(other, TkSpareCasualPersonSlot) or isinstance(other, TkBlankSpareCasualPersonSlot):
+            self.cycle.set_casual(self.person, True)
+            render_roster()
 
 
-# add available people
-available_x_start = len(roster.get_jobs()) + 1
-canvas.create_text(available_x_start * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 2, text='Spare...')
-for i, cycle in enumerate(roster.get_cycles()):
-    for j, person in enumerate(roster.get_available(cycle)):
-        x = (j + available_x_start) * CELL_SIZE + CELL_SIZE / 2
-        y = (i + 1) * CELL_SIZE + CELL_SIZE / 2
-        TkSlot(None, cycle, person, canvas, roster, x, y)
+class TkBlankSparePersonSlot(TkSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, cycle: Cycle):
+        super().__init__(row, col, canvas)
+        self.cycle = cycle
+
+
+class TkSpareCasualPersonSlot(TkPersonSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, cycle: Cycle, person: Person):
+        super().__init__(row, col, canvas, person)
+        self.cycle = cycle
+
+    def dropped_on(self, other: 'TkSlot'):
+        if isinstance(other, TkEmptySlot):
+            if self.cycle is not other.slot.cycle:
+                return
+            roster.assign(self.person, other.slot)
+            render_roster()
+        elif isinstance(other, TkAssignedPersonSlot):
+            if self.cycle is not other.slot.cycle:
+                return
+            roster.unassign(other.slot)
+            roster.assign(self.person, other.slot)
+            render_roster()
+        elif isinstance(other, TkSparePersonSlot) or isinstance(other, TkBlankSparePersonSlot):
+            self.cycle.set_casual(self.person, False)
+            render_roster()
+
+
+class TkBlankSpareCasualPersonSlot(TkSlot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, cycle: Cycle):
+        super().__init__(row, col, canvas)
+        self.cycle = cycle
+
+
+def render_roster():
+    canvas.delete('all')
+    TkSlot.tk_slots.clear()
+
+    # add axis labels
+    for col, job in enumerate(roster.get_jobs(), start=1):
+        TkJobLabel(0, col, canvas, job)
+
+    for row, cycle in enumerate(roster.get_cycles(), start=1):
+        TkJobLabel(row, 0, canvas, cycle)
+
+    # add assigned people
+    for row, cycle in enumerate(roster.get_cycles(), start=1):
+        for col, job in enumerate(roster.get_jobs(), start=1):
+            slot = roster.get_slot(job, cycle)
+            if slot is None:
+                TkUnavailableSlot(row, col, canvas, job, cycle)
+            elif slot in roster.get_assigned():
+                TkAssignedPersonSlot(row, col, canvas, slot, roster.get_assigned()[slot])
+            else:
+                TkEmptySlot(row, col, canvas, slot)
+
+    # add spare
+    max_num_spares = 0
+    for cycle in roster.get_cycles():
+        max_num_spares = max(len(roster.get_available(cycle)), max_num_spares)
+    num_spare_cols = max(1, max_num_spares)
+    offset = len(roster.get_jobs()) + 1
+    TkSlotLabel(0, offset, canvas, 'available...')
+    for row, cycle in enumerate(roster.get_cycles(), start=1):
+        count = 0
+        for col, person in enumerate(roster.get_available(cycle), start=offset):
+            TkSparePersonSlot(row, col, canvas, cycle, person)
+            count += 1
+        if count < num_spare_cols:
+            for col in range(count + offset, num_spare_cols + offset):
+                TkBlankSparePersonSlot(row, col, canvas, cycle)
+
+    # add casual spare
+    max_num_casual_spares = 0
+    for cycle in roster.get_cycles():
+        max_num_casual_spares = max(len(roster.get_casually_available(cycle)), max_num_casual_spares)
+    num_casual_spares = max(1, max_num_casual_spares)
+    offset = len(roster.get_jobs()) + num_spare_cols + 1
+    TkSlotLabel(0, offset, canvas, 'Casually \navailable...')
+    for row, cycle in enumerate(roster.get_cycles(), start=1):
+        count = 0
+        for col, person in enumerate(roster.get_casually_available(cycle), start=offset):
+            TkSpareCasualPersonSlot(row, col, canvas, cycle, person)
+            count += 1
+        if count < num_casual_spares:
+            for col in range(count + offset, num_casual_spares + offset):
+                TkBlankSpareCasualPersonSlot(row, col, canvas, cycle)
+
+    canvas.configure(scrollregion=canvas.bbox("all"))
 
 
 def fill():
     roster.fill()
-    TkSlot.update()
-    canvas.update()
+    render_roster()
 
 
 def upload():
     upload_roster(roster)
 
 
+def save():
+    canvas.postscript(file='roster.eps')
+
+
+render_roster()
+
+
 fill_button = tk.Button(window, text="Fill", command=fill)
 fill_button.pack()
-upload_button = tk.Button(window, text="Uplaod", command=upload)
+upload_button = tk.Button(window, text="Upload", command=upload)
+upload_button.pack()
+upload_button = tk.Button(window, text="Save", command=save)
 upload_button.pack()
 
 tk.mainloop()
