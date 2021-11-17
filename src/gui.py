@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 from os.path import isfile
 
@@ -303,7 +304,9 @@ def upload():
 
 
 def save():
-    canvas.postscript(file='roster.eps')
+    bbox = canvas.bbox('all')
+    canvas.postscript(file='roster.eps', x=0, y=0, width=bbox[2], height=bbox[3])
+    os.popen('open roster.eps')
 
 
 render_roster()
