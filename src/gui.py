@@ -171,11 +171,23 @@ class TkAssignedPersonSlot(TkPersonSlot):
             roster.assign(self.person, other.slot)
             roster.assign(other.person, self.slot)
             render_roster()
-        elif isinstance(other, TkSparePersonSlot) or isinstance(other, TkBlankSparePersonSlot):
+        elif isinstance(other, TkSparePersonSlot):
+            roster.unassign(self.slot)
+            self.slot.cycle.set_casual(self.person, False)
+            if self.slot.cycle is other.cycle:
+                roster.assign(other.person, self.slot)
+            render_roster()
+        elif isinstance(other, TkBlankSparePersonSlot):
             roster.unassign(self.slot)
             self.slot.cycle.set_casual(self.person, False)
             render_roster()
-        elif isinstance(other, TkSpareCasualPersonSlot) or isinstance(other, TkBlankSpareCasualPersonSlot):
+        elif isinstance(other, TkSpareCasualPersonSlot):
+            roster.unassign(self.slot)
+            self.slot.cycle.set_casual(self.person, True)
+            if self.slot.cycle is other.cycle:
+                roster.assign(other.person, self.slot)
+            render_roster()
+        elif isinstance(other, TkBlankSpareCasualPersonSlot):
             roster.unassign(self.slot)
             self.slot.cycle.set_casual(self.person, True)
             render_roster()
