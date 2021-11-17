@@ -309,6 +309,10 @@ def save():
     os.popen('open roster.eps')
 
 
+def score():
+    print('score:', roster.score())
+
+
 render_roster()
 
 
@@ -318,5 +322,7 @@ upload_button = tk.Button(window, text="Upload", command=upload)
 upload_button.pack()
 upload_button = tk.Button(window, text="Save", command=save)
 upload_button.pack()
+score_button = tk.Button(window, text="score", command=score)
+score_button.pack()
 
 tk.mainloop()

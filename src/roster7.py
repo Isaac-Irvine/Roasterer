@@ -1,3 +1,4 @@
+from time import time
 from random import choice
 
 from tabulate import tabulate
@@ -16,9 +17,11 @@ class Roster:
     def __init__(self):
         self._slots: PotentialSlots = PotentialSlots()
         self._assigned_slots: dict[Slot, Person] = dict()
+        self._assigned_people: dict[Person, set[Slot]] = dict()
         self._cycles: list[Cycle] = []
         self._jobs_order: list[Job] = []
         self._people = set()
+
 
     def add_person(self, person: Person):
         self._people.add(person)
@@ -46,12 +49,22 @@ class Roster:
         """
         self._jobs_order = jobs_order
 
+    def _generate_potential(self):
+        for cycle in self._cycles:
+            for job in cycle.get_jobs():
+                for person in cycle.get_available():
+                    self._slots.add_potential_person()
+
     def assign(self, person: Person, slot: Slot):
         """
         Assigns the given slot to the given person.
         """
 
         self._assigned_slots[slot] = person
+        if person in self._assigned_people:
+            self._assigned_people[person].add(slot)
+        else:
+            self._assigned_people[person] = {slot}
 
         # don't assign other people the slot
         self._slots.remove_slot(slot)
@@ -59,22 +72,17 @@ class Roster:
         # don't assign this person other slots in the same cycle
         self._slots.filter_slots_from_people(lambda s: s.cycle is not slot.cycle, person)
 
-        self._clear_bad_slots(person)
-
     def unassign(self, slot: Slot):
         self._assigned_slots.pop(slot)
 
     def get_slots(self) -> set[Slot]:
         return self._slots.get_slots()
 
-    def _clear_bad_slots(self, person: Person):
+    def score(self):
         """
-        Clears as many 'bad slots' as possible without leaving any unassigned slots with no potential people.
-        Bad slots are things like slots where people would be on the trap line twice in a row. I.e. consecutive hards
+        calculates a score
         """
-
-        self._slots.try_filter_slots(
-            [
+        conditions = [
                 # same hard job in cycle 2 and 3
                 lambda s1, s2:
                 s1.job is s2.job
@@ -139,39 +147,67 @@ class Roster:
                 and s1.cycle.next_to(s2.cycle),
 
                 # multiple of the same hard job
-                #lambda s1, s2:
-                #s1.job is s2.job
-                #and s1.job.is_hard(),
+                lambda s1, s2:
+                s1.job is s2.job
+                and s1.job.is_hard(),
 
                 # multiple hard jobs in the same line
-                #lambda s1, s2:
-                #s1.job.get_job_group() is not None
-                #and s1.job.get_job_group() is s2.job.get_job_group()
-                #and s1.job.is_hard() and s2.job.is_hard(),
+                lambda s1, s2:
+                s1.job.get_job_group() is not None
+                and s1.job.get_job_group() is s2.job.get_job_group()
+                and s1.job.is_hard() and s2.job.is_hard(),
 
                 # multiple hard jobs
-                #lambda s1, s2:
-                #s1.job.is_hard() and s2.job.is_hard(),
+                lambda s1, s2:
+                s1.job.is_hard() and s2.job.is_hard(),
 
                 # multiple of the same job
                 lambda s1, s2:
                 s1.job is s2.job,
 
                 # multiple jobs on the same line
-                #lambda s1, s2:
-                #s1.job.get_job_group() is not None
-                #and s1.job.get_job_group() is s2.job.get_job_group(),
-            ],
-            person,
-            self._assigned_slots
-        )
+                lambda s1, s2:
+                s1.job.get_job_group() is not None
+                and s1.job.get_job_group() is s2.job.get_job_group(),
+            ]
+
+        scores = [0] * len(conditions)
+        for person in self._assigned_people:
+            slots = list(self._assigned_people[person])
+            for i, condition in enumerate(conditions):
+                for j in range(0, len(slots)):
+                    for k in range(j+1, len(slots)):
+                        if condition(slots[j], slots[k]):
+                            scores[i] += 1
+        return [len(set(self._slots.get_slots().difference(self._assigned_slots.keys())))] + scores
+
+    @staticmethod
+    def _better_than(scores_1, scores_2):
+        for score_1, score_2 in zip(scores_1, scores_2):
+            if score_1 < score_2:
+                return True
+            elif score_1 > score_2:
+                return False
+        return True  # doesn't matter, they are the same
 
     def fill(self):
+        best = None
+        best_scores = []
+        for i in range(0, 10000):
+            slots = self._slots.copy()
+            self._assigned_slots.clear()
+            self._assigned_people.clear()
+            self._fill()
+            score = self.score()
+            if self._better_than(score, best_scores):
+                best = self._assigned_slots.copy()
+                best_scores = score
+            self._slots = slots
+        self._assigned_slots = best
+
+    def _fill(self):
         while self._slots.has_remaining_slots():
-            print()
-            slots = self._slots.get_best_slots()
-            slot = choice(list(slots.keys()))
-            person = choice(list(slots[slot]))
+            slot, person = self._slots.get_random_assignable()
 
             # if the jobs needs a supervisor, make a supervisor job
             # but if nobody can do the supervisor role, remove the role from the person
@@ -181,12 +217,7 @@ class Roster:
                     self._possible_slots[person].remove(slot)
                     continue
             '''
-            print(f'assigning {person} to {slot}')
             self.assign(person, slot)
-            print(tabulate(self.to_table(), headers='firstrow'))
-
-        print()
-        print(tabulate(self.to_table_people(), headers='firstrow'))
 
     def _has_job(self, person: Person, cycle=None) -> bool:
         for slot, p in self._assigned_slots.items():

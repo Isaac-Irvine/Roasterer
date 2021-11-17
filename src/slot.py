@@ -1,3 +1,4 @@
+from random import choice, shuffle
 from typing import Callable
 
 from job import Job
@@ -282,6 +283,11 @@ class PotentialSlots:
             slots_to_people.pop(slot)
 
         return True
+
+    def get_random_assignable(self):
+        slot = choice(list(filter(lambda s: len(self._slots_to_people[s]) > 0, self._slots_to_people.keys())))
+        person = choice(list(self._slots_to_people[slot]))
+        return slot, person
 
 
 def slots_to_table(slots_and_people: dict[Slot, set[Person]]):
