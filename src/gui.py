@@ -4,15 +4,14 @@ from os.path import isfile
 
 from PIL import Image, ImageTk
 
-from google_sheets import get_roaster, upload_roster
-from src.cycle import Cycle
-from src.job import Job
-from src.person import Person
-from src.slot import Slot
+from google_sheets import get_roster, upload_roster
+from job import Job
+from person import Person
+from roster7 import Roster, Cycle
 
 CELL_SIZE = 80
 
-roster = get_roaster()
+roster: Roster = get_roster()
 
 window = tk.Tk()
 window.resizable(True, False)
@@ -92,9 +91,10 @@ class TkSlot:
 
 
 class TkEmptySlot(TkSlot):
-    def __init__(self, row: int, col: int, canvas: tk.Canvas, slot: Slot):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, job: Job, cycle: Cycle):
         super().__init__(row, col, canvas)
-        self.slot = slot
+        self.job = job
+        self.cycle = cycle
         self.set_text('empty')
 
 
@@ -115,7 +115,7 @@ class TkCycleLabel(TkSlot):
     def __init__(self, row: int, col: int, canvas: tk.Canvas, cycle: Cycle):
         super().__init__(row, col, canvas)
         self.cycle = cycle
-        self.set_text('empty')
+        self.set_text(cycle.get_name())
 
 
 class TkUnavailableSlot(TkSlot):
@@ -152,44 +152,45 @@ class TkPersonSlot(TkSlot):
 
 
 class TkAssignedPersonSlot(TkPersonSlot):
-    def __init__(self, row: int, col: int, canvas: tk.Canvas, slot: Slot, person: Person):
+    def __init__(self, row: int, col: int, canvas: tk.Canvas, job: Job, cycle: Cycle, person: Person):
         super().__init__(row, col, canvas, person)
-        self.slot = slot
+        self.job = job
+        self.cycle = cycle
 
     def dropped_on(self, other: 'TkSlot'):
         if isinstance(other, TkEmptySlot):
-            if self.slot.cycle is not other.slot.cycle:
+            if self.cycle is not other.cycle:
                 return
-            roster.unassign(self.slot)
-            roster.assign(self.person, other.slot)
+            roster.unassign(self.cycle, self.person)
+            roster.assign(other.cycle, other.job, self.person)
             render_roster()
         elif isinstance(other, TkAssignedPersonSlot):
-            if self.slot.cycle is not other.slot.cycle:
+            if self.cycle is not other.cycle:
                 return
-            roster.unassign(self.slot)
-            roster.unassign(other.slot)
-            roster.assign(self.person, other.slot)
-            roster.assign(other.person, self.slot)
+            roster.unassign(self.cycle, self.person)
+            roster.unassign(other.cycle, other.person)
+            roster.assign(other.cycle, other.job, self.person)
+            roster.assign(self.cycle, self.job, other.person)
             render_roster()
         elif isinstance(other, TkSparePersonSlot):
-            roster.unassign(self.slot)
-            self.slot.cycle.set_casual(self.person, False)
-            if self.slot.cycle is other.cycle:
-                roster.assign(other.person, self.slot)
+            roster.unassign(self.cycle, self.person)
+            self.cycle.set_casual(self.person, False)
+            if self.cycle is other.cycle:
+                roster.assign(self.cycle, self.job, other.person)
             render_roster()
         elif isinstance(other, TkBlankSparePersonSlot):
-            roster.unassign(self.slot)
-            self.slot.cycle.set_casual(self.person, False)
+            roster.unassign(self.cycle, self.person)
+            self.cycle.set_casual(self.person, False)
             render_roster()
         elif isinstance(other, TkSpareCasualPersonSlot):
-            roster.unassign(self.slot)
-            self.slot.cycle.set_casual(self.person, True)
-            if self.slot.cycle is other.cycle:
-                roster.assign(other.person, self.slot)
+            roster.unassign(self.cycle, self.person)
+            self.cycle.set_casual(self.person, True)
+            if self.cycle is other.cycle:
+                roster.assign(self.cycle, self.job, other.person)
             render_roster()
         elif isinstance(other, TkBlankSpareCasualPersonSlot):
-            roster.unassign(self.slot)
-            self.slot.cycle.set_casual(self.person, True)
+            roster.unassign(self.cycle, self.person)
+            self.cycle.set_casual(self.person, True)
             render_roster()
 
 
@@ -200,15 +201,15 @@ class TkSparePersonSlot(TkPersonSlot):
 
     def dropped_on(self, other: 'TkSlot'):
         if isinstance(other, TkEmptySlot):
-            if self.cycle is not other.slot.cycle:
+            if self.cycle is not other.cycle:
                 return
-            roster.assign(self.person, other.slot)
+            roster.assign(other.cycle, other.job, self.person)
             render_roster()
         elif isinstance(other, TkAssignedPersonSlot):
-            if self.cycle is not other.slot.cycle:
+            if self.cycle is not other.cycle:
                 return
-            roster.unassign(other.slot)
-            roster.assign(self.person, other.slot)
+            roster.unassign(other.cycle, other.person)
+            roster.assign(other.cycle, other.job, self.person)
             render_roster()
         elif isinstance(other, TkSpareCasualPersonSlot) or isinstance(other, TkBlankSpareCasualPersonSlot):
             self.cycle.set_casual(self.person, True)
@@ -228,15 +229,15 @@ class TkSpareCasualPersonSlot(TkPersonSlot):
 
     def dropped_on(self, other: 'TkSlot'):
         if isinstance(other, TkEmptySlot):
-            if self.cycle is not other.slot.cycle:
+            if self.cycle is not other.cycle:
                 return
-            roster.assign(self.person, other.slot)
+            roster.assign(other.cycle, other.job, self.person)
             render_roster()
         elif isinstance(other, TkAssignedPersonSlot):
-            if self.cycle is not other.slot.cycle:
+            if self.cycle is not other.cycle:
                 return
-            roster.unassign(other.slot)
-            roster.assign(self.person, other.slot)
+            roster.unassign(other.cycle, other.person)
+            roster.assign(other.cycle, other.job, self.person)
             render_roster()
         elif isinstance(other, TkSparePersonSlot) or isinstance(other, TkBlankSparePersonSlot):
             self.cycle.set_casual(self.person, False)
@@ -254,33 +255,34 @@ def render_roster():
     TkSlot.tk_slots.clear()
 
     # add axis labels
-    for col, job in enumerate(roster.get_jobs(), start=1):
+    for col, job in enumerate(roster.jobs, start=1):
         TkJobLabel(0, col, canvas, job)
 
-    for row, cycle in enumerate(roster.get_cycles(), start=1):
-        TkJobLabel(row, 0, canvas, cycle)
+    for row, cycle in enumerate(roster.cycles, start=1):
+        TkCycleLabel(row, 0, canvas, cycle)
 
     # add assigned people
-    for row, cycle in enumerate(roster.get_cycles(), start=1):
-        for col, job in enumerate(roster.get_jobs(), start=1):
-            slot = roster.get_slot(job, cycle)
-            if slot is None:
+    for row, cycle in enumerate(roster.cycles, start=1):
+        for col, job in enumerate(roster.jobs, start=1):
+            if job not in cycle.jobs:
                 TkUnavailableSlot(row, col, canvas, job, cycle)
-            elif slot in roster.get_assigned():
-                TkAssignedPersonSlot(row, col, canvas, slot, roster.get_assigned()[slot])
+                continue
+            person = roster.get_assinged_person(cycle, job)
+            if person is not None:
+                TkAssignedPersonSlot(row, col, canvas, job, cycle, person)
             else:
-                TkEmptySlot(row, col, canvas, slot)
+                 TkEmptySlot(row, col, canvas, job, cycle)
 
     # add spare
     max_num_spares = 0
-    for cycle in roster.get_cycles():
-        max_num_spares = max(len(roster.get_available(cycle)), max_num_spares)
+    for cycle in roster.cycles:
+        max_num_spares = max(len(roster.get_unassinged_fully_available(cycle)), max_num_spares)
     num_spare_cols = max(1, max_num_spares)
-    offset = len(roster.get_jobs()) + 1
-    TkSlotLabel(0, offset, canvas, 'available...')
-    for row, cycle in enumerate(roster.get_cycles(), start=1):
+    offset = len(roster.jobs) + 1
+    TkSlotLabel(0, offset, canvas, 'Available...')
+    for row, cycle in enumerate(roster.cycles, start=1):
         count = 0
-        for col, person in enumerate(roster.get_available(cycle), start=offset):
+        for col, person in enumerate(roster.get_unassinged_fully_available(cycle), start=offset):
             TkSparePersonSlot(row, col, canvas, cycle, person)
             count += 1
         if count < num_spare_cols:
@@ -289,14 +291,14 @@ def render_roster():
 
     # add casual spare
     max_num_casual_spares = 0
-    for cycle in roster.get_cycles():
-        max_num_casual_spares = max(len(roster.get_casually_available(cycle)), max_num_casual_spares)
+    for cycle in roster.cycles:
+        max_num_casual_spares = max(len(roster.get_unassinged_casually_available(cycle)), max_num_casual_spares)
     num_casual_spares = max(1, max_num_casual_spares)
-    offset = len(roster.get_jobs()) + num_spare_cols + 1
+    offset = len(roster.jobs) + num_spare_cols + 1
     TkSlotLabel(0, offset, canvas, 'Casually \navailable...')
-    for row, cycle in enumerate(roster.get_cycles(), start=1):
+    for row, cycle in enumerate(roster.cycles, start=1):
         count = 0
-        for col, person in enumerate(roster.get_casually_available(cycle), start=offset):
+        for col, person in enumerate(roster.get_unassinged_casually_available(cycle), start=offset):
             TkSpareCasualPersonSlot(row, col, canvas, cycle, person)
             count += 1
         if count < num_casual_spares:

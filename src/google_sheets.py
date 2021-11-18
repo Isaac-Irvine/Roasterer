@@ -3,6 +3,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from tabulate import tabulate
 
+from roster7 import Roster
 from table_parsing import parse_table
 
 
@@ -19,7 +20,7 @@ roster_hard_coding = spreadsheet.get_worksheet_by_id(940515330).get_values()
 roster_sheet = spreadsheet.get_worksheet_by_id(1316761516)
 
 
-def get_roster():
+def get_roster() -> Roster:
     return parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_coding)
 
 
@@ -31,9 +32,3 @@ def upload_roster(roster):
             cells.append(gspread.Cell(row_num + 1, col_num + 1, roster_as_table[row_num][col_num]))
     roster_sheet.clear()
     roster_sheet.update_cells(cells)
-
-
-roster = get_roster()
-roster.fill()
-roster.print_table()
-pass

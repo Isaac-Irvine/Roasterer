@@ -36,7 +36,7 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_codin
 
         for i in range(0, 4):
             if to_bool(row[i + 4]):
-                cycles[i].jobs.append(job)
+                cycles[i].jobs.add(job)
 
     # parse people and jobs table
     jobs_list = [jobs[j] for j in people_jobs[0][1:]]
@@ -66,9 +66,9 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_codin
 
         for cycle, cell in zip(cycles, row[1:5]):
             if cell == 'Available':
-                cycle.fully_available_people.append(person)
+                cycle.fully_available_people.add(person)
             elif cell == 'Casual only':
-                cycle.casually_available_people.append(person)
+                cycle.casually_available_people.add(person)
 
     # parsing roaster hard coding
     for cycle, row in zip(cycles, filter(lambda r: r[0] != '', roster_hard_coding[1:])):
