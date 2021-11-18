@@ -45,7 +45,7 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_codin
         name = row[0]
         person = Person(name)
         people[name] = person
-        roaster.people.append(person)
+        roaster.people.add(person)
 
         for i, cell in enumerate(row[1:]):
             if cell == '':

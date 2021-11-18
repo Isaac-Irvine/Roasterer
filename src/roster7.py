@@ -7,6 +7,7 @@ from scipy.optimize import linear_sum_assignment
 import numpy as np
 
 # TODO: get scoring right
+CANT_DO_SCORE = 1000
 FILL_CONDITIONS = (
     # same hard job in cycle 2 and 3
     (
@@ -165,6 +166,12 @@ class Cycle:
             self.casually_available_people.remove(person)
             self.fully_available_people.add(person)
 
+    def remove_person(self, person: Person):
+        if person in self.fully_available_people:
+            self.fully_available_people.remove(person)
+        if person in self.casually_available_people:
+            self.casually_available_people.remove(person)
+
     def can_fill(self):
         pass
 
@@ -175,7 +182,6 @@ class Roster:
         self.people: set[Person] = set()
         self.cycles: list[Cycle] = []
         self.assigned: dict[Cycle, dict[Person, Job]] = {}
-        self.scores: dict[Cycle: int] = {}
 
     def copy(self):
         new = Roster()
@@ -218,13 +224,7 @@ class Roster:
         return people
 
     def get_unavailable(self, cycle: Cycle):
-        if cycle not in self.assigned:
-            return self.people.difference()
-        people = set()
-        for person in cycle.casually_available_people.union(cycle.fully_available_people):
-            if person not in self.assigned[cycle]:
-                people.add(person)
-        return people
+        return self.people.difference(cycle.casually_available_people.union(cycle.fully_available_people))
 
     def get_unassinged_jobs(self, cycle: Cycle) -> set[Job]:
         if cycle not in self.assigned:
@@ -234,9 +234,6 @@ class Roster:
             if job not in self.assigned[cycle].values():
                 jobs.add(job)
         return jobs
-
-    def get_total_score(self):
-        return sum(self.scores.values())
 
     def _get_assigned_copy(self) -> dict[Cycle, dict[Person, Job]]:
         new = dict()
@@ -256,19 +253,21 @@ class Roster:
 
         for i in range(100):
             start = self._get_assigned_copy()
+            score = 0
             for cycle in self.cycles:
-                costs, people, jobs = self.get_cost_matrix(cycle)
+                costs, people, jobs = self._get_cost_matrix(cycle)
                 row_ind, col_ind = linear_sum_assignment(costs)
-                self.scores[cycle] = costs[row_ind, col_ind].sum()
+                score += costs[row_ind, col_ind].sum()
                 for job_index, person_index in zip(row_ind, col_ind):
-                    self.assigned[cycle][people[person_index]] = jobs[job_index]
-            if self.get_total_score() < min_score:
+                    if costs[job_index][person_index] < CANT_DO_SCORE:
+                        self.assigned[cycle][people[person_index]] = jobs[job_index]
+            if score < min_score:
                 min_assigned = self.assigned
-                min_score = self.get_total_score()
+                min_score = score
             self.assigned = start
         self.assigned = min_assigned
 
-    def get_cost_matrix(self, cycle: Cycle) -> tuple[np.ndarray, list[Person], list[Job]]:
+    def _get_cost_matrix(self, cycle: Cycle) -> tuple[np.ndarray, list[Person], list[Job]]:
         # jobs is row
         # people are col
         people = list(self.get_unassinged_fully_available(cycle))
