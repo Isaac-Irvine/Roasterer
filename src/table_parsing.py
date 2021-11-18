@@ -1,4 +1,4 @@
-from cycle import Cycle
+from roster7 import Cycle
 from job import Job, JobGroup
 from person import Person
 from roster7 import Roster
@@ -13,12 +13,13 @@ def to_bool(string):
 
 
 def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_coding):
-    cycles = [Cycle(i) for i in range(1, 5)]
+    cycles: list[Cycle] = [Cycle(i) for i in range(1, 5)]
 
-    jobs = {}  # maps names of jobs to jobs
+    jobs: dict[str, ] = {}  # maps names of jobs to jobs
     job_groups = {}  # maps names of job groups to job groups
     people = {}  # maps peoples names to people
     roaster = Roster()
+    roaster.cycles = cycles
 
     # parsing jobs and cycles table
     for row in filter(lambda r: r[0] != '', jobs_cycles[1:]):
@@ -31,10 +32,11 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_codin
             job_group = None
         job = Job(row[0], job_group, to_bool(row[1]), to_bool(row[2]))
         jobs[row[0]] = job
+        roaster.jobs.append(job)
 
         for i in range(0, 4):
             if to_bool(row[i + 4]):
-                cycles[i].add_job(job, to_bool(row[i + 7]))
+                cycles[i].jobs.append(job)
 
     # parse people and jobs table
     jobs_list = [jobs[j] for j in people_jobs[0][1:]]
@@ -43,7 +45,7 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_codin
         name = row[0]
         person = Person(name)
         people[name] = person
-        roaster.add_person(person)
+        roaster.people.append(person)
 
         for i, cell in enumerate(row[1:]):
             if cell == '':
@@ -64,26 +66,19 @@ def parse_table(jobs_cycles, people_availability, people_jobs, roster_hard_codin
 
         for cycle, cell in zip(cycles, row[1:5]):
             if cell == 'Available':
-                cycle.add_person(person, False)
+                cycle.fully_available_people.append(person)
             elif cell == 'Casual only':
-                cycle.add_person(person, True)
-
-    # setting up roaster
-    roaster.set_jobs_order(jobs_list)
-    for cycle in cycles:
-        roaster.add_cycle(cycle)
+                cycle.casually_available_people.append(person)
 
     # parsing roaster hard coding
     for cycle, row in zip(cycles, filter(lambda r: r[0] != '', roster_hard_coding[1:])):
         for job, cell in zip(jobs_list, row[1:]):
             if cell != '':
-                if cell not in people:  # TODO: This doesn't catch people if they are unavailable but still assigned
+                if cell not in people:
                     raise RuntimeError(
                         f'nobody called {cell} found in the Roaster hard coding sheet. '
                         f'If this isn\'t a typo, make sure the person is in the People and Job sheet'
                     )
-                if cell not in cycle.get_people():
-                    cycle.add_person(people[cell], False)
-                roaster.assign(people[cell], roaster.get_slot(job, cycle))
+                roaster.assign(cycle, job, people[cell])
 
     return roaster
