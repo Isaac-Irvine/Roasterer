@@ -15,7 +15,7 @@ FILL_CONDITIONS = (
         assigned_job is potential_job
         and assigned_job.is_hard()
         and assigned_cycle.is_long() and potential_cycle.is_long(),
-        32768
+        35
     ),
 
     # two hard jobs in the same line in cycle 2 and 3
@@ -25,7 +25,7 @@ FILL_CONDITIONS = (
         and assigned_job.get_job_group() is potential_job.get_job_group()
         and assigned_job.is_hard() and potential_job.is_hard()
         and assigned_cycle.is_long() and potential_cycle.is_long(),
-        16384
+        34
     ),
 
     # two hard jobs in cycle 2 and 3
@@ -33,7 +33,7 @@ FILL_CONDITIONS = (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job.is_hard() and potential_job.is_hard()
         and assigned_cycle.is_long() and potential_cycle.is_long(),
-        8192
+        33
     ),
 
     # same hard job consecutively
@@ -42,7 +42,7 @@ FILL_CONDITIONS = (
         assigned_job is potential_job
         and assigned_job.is_hard()
         and assigned_cycle.next_to(potential_cycle),
-        4096
+        32
     ),
 
     # two hard jobs in the same line consecutively
@@ -52,7 +52,7 @@ FILL_CONDITIONS = (
         and assigned_job.get_job_group() is potential_job.get_job_group()
         and assigned_job.is_hard() and potential_job.is_hard()
         and assigned_cycle.next_to(potential_cycle),
-        2048
+        31
     ),
 
     # two hard jobs consecutively
@@ -60,7 +60,7 @@ FILL_CONDITIONS = (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job.is_hard() and potential_job.is_hard()
         and assigned_cycle.next_to(potential_cycle),
-        1024
+        30
     ),
 
     # same job in cycle 2 and 3
@@ -68,7 +68,7 @@ FILL_CONDITIONS = (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job is potential_job
         and assigned_cycle.is_long() and potential_cycle.is_long(),
-        512
+        23
     ),
 
     # two jobs in the same line in cycle 2 and 3
@@ -78,7 +78,7 @@ FILL_CONDITIONS = (
         and assigned_job.get_job_group() is potential_job.get_job_group()
         and assigned_cycle.is_long()
         and potential_cycle.is_long(),
-        128
+        22
     ),
 
     # same job consecutively
@@ -86,7 +86,7 @@ FILL_CONDITIONS = (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job is potential_job
         and assigned_cycle.next_to(potential_cycle),
-        64
+        21
     ),
 
     # two jobs in the same line consecutively
@@ -95,7 +95,7 @@ FILL_CONDITIONS = (
         assigned_job.get_job_group() is not None
         and assigned_job.get_job_group() is potential_job.get_job_group()
         and assigned_cycle.next_to(potential_cycle),
-        32
+        20
     ),
 
     # multiple of the same hard job
@@ -103,7 +103,7 @@ FILL_CONDITIONS = (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job is potential_job
         and assigned_job.is_hard(),
-        16
+        14
     ),
 
     # multiple hard jobs in the same line
@@ -112,21 +112,21 @@ FILL_CONDITIONS = (
         assigned_job.get_job_group() is not None
         and assigned_job.get_job_group() is potential_job.get_job_group()
         and assigned_job.is_hard() and potential_job.is_hard(),
-        8
+        13
     ),
 
     # multiple hard jobs
     (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job.is_hard() and potential_job.is_hard(),
-        4
+        12
     ),
 
     # multiple of the same job
     (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job is potential_job,
-        2
+        11
     ),
 
     # multiple jobs on the same line
@@ -134,7 +134,7 @@ FILL_CONDITIONS = (
         lambda assigned_job, assigned_cycle, potential_job, potential_cycle:
         assigned_job.get_job_group() is not None
         and assigned_job.get_job_group() is potential_job.get_job_group(),
-        1
+        10
     )
 )
 
@@ -145,6 +145,13 @@ class Cycle:
         self.fully_available_people: set[Person] = set()
         self.casually_available_people: set[Person] = set()
         self.number: int = number
+
+    def copy(self):
+        new = Cycle(self.number)
+        new.jobs = self.jobs.copy()
+        new.fully_available_people = self.fully_available_people.copy()
+        new.casually_available_people = self.casually_available_people.copy()
+        return new
 
     def get_name(self) -> str:
         return f'Cycle {self.number}'
@@ -178,7 +185,7 @@ class Cycle:
 
 class Roster:
     def __init__(self):
-        self.jobs: list[Job] = []  # switch to OrderedSet()?
+        self.jobs: list[Job] = []  # switch to Set()?
         self.people: set[Person] = set()
         self.cycles: list[Cycle] = []
         self.assigned: dict[Cycle, dict[Person, Job]] = {}
@@ -189,6 +196,27 @@ class Roster:
         new.people = self.people.copy()
         new.cycles = self.cycles.copy()
         new.assigned = self._get_assigned_copy()
+        return new
+
+    def deep_copy(self):
+        new = Roster()
+        new.jobs = self.jobs.copy()
+        new.people = self.people.copy()
+        for cycle in self.cycles:
+            new_cycle = cycle.copy()
+            new.cycles.append(new_cycle)
+            if cycle in self.assigned:
+                new.assigned[new_cycle] = dict()
+                for person, job in self.assigned[cycle].items():
+                    new.assigned[new_cycle][person] = job
+        return new
+
+    def _get_assigned_copy(self) -> dict[Cycle, dict[Person, Job]]:
+        new = dict()
+        for cycle in self.assigned:
+            new[cycle] = dict()
+            for person, job in self.assigned[cycle].items():
+                new[cycle][person] = job
         return new
 
     def assign(self, cycle: Cycle, job: Job, person: Person):
@@ -223,6 +251,9 @@ class Roster:
                 people.add(person)
         return people
 
+    def get_unassinged_available(self, cycle):
+        return self.get_unassinged_casually_available(cycle).union(self.get_unassinged_fully_available(cycle))
+
     def get_unavailable(self, cycle: Cycle):
         return self.people.difference(cycle.casually_available_people.union(cycle.fully_available_people))
 
@@ -234,14 +265,6 @@ class Roster:
             if job not in self.assigned[cycle].values():
                 jobs.add(job)
         return jobs
-
-    def _get_assigned_copy(self) -> dict[Cycle, dict[Person, Job]]:
-        new = dict()
-        for cycle in self.assigned:
-            new[cycle] = dict()
-            for person, job in self.assigned[cycle].items():
-                new[cycle][person] = job
-        return new
 
     def fill(self):
         for cycle in self.cycles:
@@ -270,7 +293,7 @@ class Roster:
     def _get_cost_matrix(self, cycle: Cycle) -> tuple[np.ndarray, list[Person], list[Job]]:
         # jobs is row
         # people are col
-        people = list(self.get_unassinged_fully_available(cycle))
+        people = list(self.get_unassinged_available(cycle))
         jobs = list(self.get_unassinged_jobs(cycle))
         shuffle(people)
         matrix = np.full((len(jobs), len(people)), 999999999999)
@@ -282,7 +305,9 @@ class Roster:
 
     def _get_score(self, cycle: Cycle, job: Job, person: Person) -> int:
         if not person.can_do_job(job):
-            return 99999999999999
+            return CANT_DO_SCORE
+        if person in cycle.casually_available_people and not job.is_casual():
+            return CANT_DO_SCORE
         for condition, score in FILL_CONDITIONS:
             num = 0
             for c in self.assigned:
@@ -295,23 +320,3 @@ class Roster:
             if num != 0:
                 return num * score
         return 0
-
-    def assigned_to_table(self):
-        table = [[''] + [job.get_name() for job in self.jobs]]
-        for cycle in self.cycles:
-            row = [cycle.get_name()] + [''] * len(self.jobs)
-            if cycle not in self.assigned:
-                continue
-            for person, job in self.assigned[cycle].items():
-                row[self.jobs.index(job) + 1] = person.get_name()
-            table.append(row)
-        return table
-
-    @staticmethod
-    def costs_to_table(costs, jobs, people):
-        table = [[''] + [job.get_name() for job in jobs]]
-        for person in people:
-            pass
-
-    def print_table(self):
-        print(tabulate(self.assigned_to_table(), headers='firstrow'))

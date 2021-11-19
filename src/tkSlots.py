@@ -1,4 +1,5 @@
 from time import time
+from typing import Callable
 
 from PIL import Image, ImageTk
 import tkinter as tk
@@ -9,6 +10,15 @@ from person import Person
 from roster7 import Roster, Cycle
 
 CELL_SIZE = 80
+
+
+def make_undo_state():
+    pass
+
+
+def set_undo_state_setter(func: Callable):
+    global make_undo_state
+    make_undo_state = func
 
 
 class TkSlot:
@@ -50,10 +60,9 @@ class TkSlot:
     def move(self, event):
         if not self.movable:
             return
-        if not self.moving:
-            for tk_slot in TkSlot.tk_slots:
-                if tk_slot.can_drag_onto(self) and tk_slot is not self:
-                    self.canvas.itemconfig(tk_slot.rect_obj, width=1)
+        for tk_slot in TkSlot.tk_slots:
+            if tk_slot.can_drag_onto(self) and tk_slot is not self:
+                self.canvas.itemconfig(tk_slot.rect_obj, width=1)
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         for obj in self.tk_objects:
@@ -117,6 +126,11 @@ class TkUnavailableSlot(TkSlot):
         self.job = job
         self.cycle = cycle
 
+    def release(self, event):
+        make_undo_state()
+        self.cycle.jobs.add(self.job)
+        render_roster(self.canvas, self.roster)
+
 
 class TkEmptySlot(TkSlot):
     def __init__(self, roster: Roster, row: int, col: int, canvas: tk.Canvas, job: Job, cycle: Cycle):
@@ -125,6 +139,11 @@ class TkEmptySlot(TkSlot):
         self.cycle = cycle
         self.canvas.itemconfig(self.rect_obj, fill='#ddd')
         self.set_text('empty')
+
+    def release(self, event):
+        make_undo_state()
+        self.cycle.jobs.remove(self.job)
+        render_roster(self.canvas, self.roster)
 
     def can_drag_onto(self, other):
         if isinstance(other, TkPersonSlot):
@@ -170,26 +189,31 @@ class TkAssignedPersonSlot(TkPersonSlot):
         if isinstance(other, TkEmptySlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.roster.unassign(self.cycle, self.person)
             self.roster.assign(other.cycle, other.job, self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkAssignedPersonSlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.roster.unassign(self.cycle, self.person)
             self.roster.unassign(other.cycle, other.person)
             self.roster.assign(other.cycle, other.job, self.person)
             self.roster.assign(self.cycle, self.job, other.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkSparePersonSlot) or isinstance(other, TkBlankSparePersonSlot):
+            make_undo_state()
             self.roster.unassign(self.cycle, self.person)
             self.cycle.set_casual(self.person, False)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkSpareCasualPersonSlot) or isinstance(other, TkBlankSpareCasualPersonSlot):
+            make_undo_state()
             self.roster.unassign(self.cycle, self.person)
             self.cycle.set_casual(self.person, True)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkUnavailablePersonSlot) or isinstance(other, TkBlankUnavailablePersonSlot):
+            make_undo_state()
             self.roster.unassign(self.cycle, self.person)
             self.cycle.remove_person(self.person)
             render_roster(self.canvas, self.roster)
@@ -209,18 +233,22 @@ class TkSparePersonSlot(TkPersonSlot):
         if isinstance(other, TkEmptySlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.roster.assign(other.cycle, other.job, self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkAssignedPersonSlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.roster.unassign(other.cycle, other.person)
             self.roster.assign(other.cycle, other.job, self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkSpareCasualPersonSlot) or isinstance(other, TkBlankSpareCasualPersonSlot):
+            make_undo_state()
             self.cycle.set_casual(self.person, True)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkUnavailablePersonSlot) or isinstance(other, TkBlankUnavailablePersonSlot):
+            make_undo_state()
             self.cycle.remove_person(self.person)
             render_roster(self.canvas, self.roster)
 
@@ -239,18 +267,22 @@ class TkSpareCasualPersonSlot(TkPersonSlot):
         if isinstance(other, TkEmptySlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.roster.assign(other.cycle, other.job, self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkAssignedPersonSlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.roster.unassign(other.cycle, other.person)
             self.roster.assign(other.cycle, other.job, self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkSparePersonSlot) or isinstance(other, TkBlankSparePersonSlot):
+            make_undo_state()
             self.cycle.set_casual(self.person, False)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkUnavailablePersonSlot) or isinstance(other, TkBlankUnavailablePersonSlot):
+            make_undo_state()
             self.cycle.remove_person(self.person)
             render_roster(self.canvas, self.roster)
 
@@ -269,20 +301,24 @@ class TkUnavailablePersonSlot(TkPersonSlot):
         if isinstance(other, TkEmptySlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.cycle.fully_available_people.add(self.person)
             self.roster.assign(other.cycle, other.job, self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkAssignedPersonSlot):
             if self.cycle is not other.cycle:
                 return
+            make_undo_state()
             self.cycle.fully_available_people.add(self.person)
             self.roster.unassign(other.cycle, other.person)
             self.roster.assign(other.cycle, other.job, self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkSparePersonSlot) or isinstance(other, TkBlankSparePersonSlot):
+            make_undo_state()
             self.cycle.fully_available_people.add(self.person)
             render_roster(self.canvas, self.roster)
         elif isinstance(other, TkSpareCasualPersonSlot) or isinstance(other, TkBlankSpareCasualPersonSlot):
+            make_undo_state()
             self.cycle.casually_available_people.add(self.person)
             render_roster(self.canvas, self.roster)
 
@@ -291,8 +327,8 @@ class TkBlankUnavailablePersonSlot(TkSlot):
     def __init__(self, roster: Roster, row: int, col: int, canvas: tk.Canvas, cycle: Cycle):
         super().__init__(roster, row, col, canvas)
         self.cycle = cycle
-        
-        
+
+
 def render_roster(canvas: tk.Canvas, roster: Roster):
     canvas.delete('all')
     TkSlot.tk_slots.clear()

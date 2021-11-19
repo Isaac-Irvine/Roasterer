@@ -21,6 +21,9 @@ class Job:
         else:
             self._supervisor_job = None
 
+    def set_name(self, name: str):
+        self._name = name
+
     def is_hard(self) -> bool:
         return self._hard
 
