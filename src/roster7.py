@@ -1,6 +1,5 @@
-from random import choice, shuffle
+from random import shuffle
 
-from tabulate import tabulate
 from job import Job
 from person import Person
 from scipy.optimize import linear_sum_assignment
@@ -210,6 +209,27 @@ class Roster:
                 for person, job in self.assigned[cycle].items():
                     new.assigned[new_cycle][person] = job
         return new
+
+    def remove_job(self, job: Job):
+        self.jobs.remove(job)
+        for person in self.people:
+            if person.can_do_job(job):
+                person.remove_job(job)
+        for cycle in self.cycles:
+            if job in cycle.jobs:
+                cycle.jobs.remove(job)
+        for cycle, assignments in self.assigned.items():
+            for person, assigned_job in assignments.copy().items():
+                if job is assigned_job:
+                    assignments.pop(person)
+
+    def remove_person(self, person: Person):
+        self.people.remove(person)
+        for cycle in self.cycles:
+            cycle.remove_person(person)
+        for cycle, assignments in self.assigned.items():
+            if person in assignments:
+                assignments.pop(person)
 
     def _get_assigned_copy(self) -> dict[Cycle, dict[Person, Job]]:
         new = dict()

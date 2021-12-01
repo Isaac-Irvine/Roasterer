@@ -24,8 +24,14 @@ class Job:
     def set_name(self, name: str):
         self._name = name
 
+    def set_hard(self, hard: bool):
+        self._hard = hard
+
     def is_hard(self) -> bool:
         return self._hard
+
+    def set_casual(self, casual: bool):
+        self._casual = casual
 
     def is_casual(self) -> bool:
         return self._casual

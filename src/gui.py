@@ -3,22 +3,14 @@ import pickle
 from tkinter import filedialog as fd, Menu, Toplevel, Label, Checkbutton, IntVar, StringVar, Entry, Button, Frame, \
     BooleanVar
 
-from edit_people_gui import EditPeople
 from tkSlots import *
 
 '''
-TODO Today:
-./ make algorithm account for casually available people
-make a jobs table window that lets you pick whos trained and if the job is hard, casual or on the same line
-window for making new people and jobs
+TODO:
+implement jobs edit window
+make jobs and person add window
+way to change order of jobs
 package it in such a way that its easy to run
-./ tune scores. Could still do with some more tuning
-./ when picking up a person, highlight the jobs/slots they can do
-./ add in unavailable people
-./ disable and enable slots
-clean up code a little
-./ add pickling so you don't need google sheets
-./ add undo
 add higher quality render for image exports
 '''
 
@@ -113,104 +105,137 @@ def get_toggle(person, job):
     return toggle_job
 
 
-def person_window_factory(master_window, person: Person, label: Label):
-    window = None
-    name_var = StringVar(value=person.get_name())
+class PersonWindow:
+    def __init__(self, person: Person):
+        self.person = person
+        self.window = None
+        self.name_var = StringVar(value=person.get_name())
 
-    def close_window():
-        global window
-        window.destroy()
-        person.set_name(name_var.get())
-        label.config(text=name_var.get())
+    def close(self, event=None):
+        self.window.destroy()
+
+    def save_and_close(self, event=None):
+        self.person.set_name(self.name_var.get())
+        self.close()
         render_roster(canvas, roster)
+        render_edit_window_table()
 
-    def open_window(event):
-        global window
-        window = Toplevel(master_window)
-        window.title(f'Edit {person.get_name()}')
-        window.resizable(False, False)
+    def delete_and_close(self, event=None):
+        roster.remove_person(self.person)
+        self.close()
+        render_roster(canvas, roster)
+        render_edit_window_table()
 
-        fields_frame = Frame(window)
+    def open(self, event=None):
+        self.window = Toplevel(window)
+        self.window.title(f'Edit {self.person.get_name()}')
+        self.window.resizable(False, False)
+
+        fields_frame = Frame(self.window)
         fields_frame.pack()
 
         # Name
         Label(fields_frame, text='Name:').grid(row=0, column=0)
-        Entry(fields_frame, textvariable=name_var).grid(row=0, column=1)
+        Entry(fields_frame, textvariable=self.name_var).grid(row=0, column=1)
 
         # buttons
-        Button(window, text='Delete person', fg='red').pack(side='left')
         Button(
-            window,
+            self.window,
+            text='Delete person',
+            fg='red',
+            command=lambda: self.delete_and_close()
+        ).pack(side='left')
+        Button(
+            self.window,
             text='Okay',
-            command=close_window
+            command=lambda: self.save_and_close()
         ).pack(side='right')
-    return open_window
 
 
-def job_window_factory(master_window, job: Job, label: Label):
-    window = None
-    name_var = StringVar(value=job.get_name())
-    if job.get_job_group() is None:
-        group_var = StringVar()
-    else:
-        group_var = StringVar(value=job.get_job_group().get_name())
-    hard_var = BooleanVar(value=job.is_hard())
-    casual_var = BooleanVar(value=job.is_hard())
+class JobsWindow:
+    def __init__(self, job: Job):
+        self.job = job
+        self.window = None
+        self.name_var = StringVar(value=job.get_name())
+        if job.get_job_group() is None:
+            self.group_var = StringVar()
+        else:
+            self.group_var = StringVar(value=job.get_job_group().get_name())
+        self.hard_var = BooleanVar(value=job.is_hard())
+        self.casual_var = BooleanVar(value=job.is_hard())
 
-    def close_window():
-        global window
-        window.destroy()
-        job.set_name(name_var.get())
-        label.config(text=name_var.get())
+    def close(self):
+        self.window.destroy()
+
+    def save_and_close(self, event=None):
+        self.job.set_name(self.name_var.get())
+        self.job.set_casual(self.casual_var.get())
+        self.job.set_hard(self.hard_var.get())
+        self.close()
         render_roster(canvas, roster)
+        render_edit_window_table()
 
-    def open_window(event):
-        global window
-        window = Toplevel(master_window)
-        window.title(f'Edit {job.get_name()}')
-        window.resizable(False, False)
+    def delete_and_close(self, event=None):
+        roster.remove_job(self.job)
+        self.close()
+        render_roster(canvas, roster)
+        render_edit_window_table()
 
-        fields_frame = Frame(window)
+    def open(self, event=None):
+        self.window = Toplevel(window)
+        self.window.title(f'Edit {self.job.get_name()}')
+        self.window.resizable(False, False)
+
+        fields_frame = Frame(self.window)
         fields_frame.pack()
 
         # Name
         Label(fields_frame, text='Name:').grid(row=0, column=0)
-        Entry(fields_frame, textvariable=name_var).grid(row=0, column=1)
+        Entry(fields_frame, textvariable=self.name_var).grid(row=0, column=1)
 
         # Group TODO: add dropdown
         Label(fields_frame, text='Group:').grid(row=1, column=0)
-        Entry(fields_frame, textvariable=group_var).grid(row=1, column=1)
+        Entry(fields_frame, textvariable=self.group_var).grid(row=1, column=1)
 
         # Hard
         Label(fields_frame, text='Is hard:').grid(row=2, column=0)
-        Checkbutton(fields_frame, variable=hard_var).grid(row=2, column=1)
+        Checkbutton(fields_frame, variable=self.hard_var).grid(row=2, column=1)
 
         # Casual
         Label(fields_frame, text='Is casual:').grid(row=3, column=0)
-        Checkbutton(fields_frame, variable=casual_var).grid(row=3, column=1)
+        Checkbutton(fields_frame, variable=self.casual_var).grid(row=3, column=1)
 
         # buttons
-        Button(window, text='Delete job', fg='red').pack(side='left')
         Button(
-            window,
+            self.window,
+            text='Delete job',
+            fg='red',
+            command=lambda: self.delete_and_close()
+        ).pack(side='left')
+        Button(
+            self.window,
             text='Okay',
-            command=close_window
+            command=lambda: self.save_and_close()
         ).pack(side='right')
-    return open_window
 
 
 def render_edit_window_table():
     global roster
     global edit_window
 
+    for widget in edit_window.winfo_children():
+        widget.destroy()
+
     for row, person in enumerate(roster.people, start=1):
         label = Label(edit_window, text=person.get_name())
         label.grid(row=row, column=0)
-        label.bind('<Double-Button-1>', person_window_factory(edit_window, person, label))
+        person_window = PersonWindow(person)
+        label.bind('<Double-Button-1>', person_window.open)
     for col, job in enumerate(roster.jobs, start=1):
         label = Label(edit_window, text=job.get_name())
         label.grid(row=0, column=col)
-        label.bind('<Double-Button-1>', job_window_factory(edit_window, job, label))
+        job_window = JobsWindow(job)
+        label.bind('<Double-Button-1>', job_window.open)
     for row, person in enumerate(roster.people, start=1):
         for col, job in enumerate(roster.jobs, start=1):
             checkbox = Checkbutton(edit_window, command=get_toggle(person, job))
@@ -231,9 +256,14 @@ file_menu = Menu(menu)
 menu.add_cascade(label='File', menu=file_menu)
 file_menu.add_command(label='Open', command=open_roster)
 file_menu.add_command(label='Save', command=save_roster)
-file_menu.add_command(label='Undo', command=undo)
 file_menu.add_command(label='Export Image', command=export)
-file_menu.add_command(label='Edit people and jobs', command=open_edit_window)
+
+edit_menu = Menu(menu)
+menu.add_cascade(label='Edit', menu=edit_menu)
+edit_menu.add_command(label='Undo', command=undo)
+edit_menu.add_command(label='Edit training', command=open_edit_window)
+edit_menu.add_command(label='Add person')
+edit_menu.add_command(label='Add job')
 
 # key binds
 window.bind_all('<Control-z>', lambda _: undo())
